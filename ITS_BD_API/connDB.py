@@ -21,7 +21,7 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         db = cx_Oracle.connect(user=dbuser, password=dbpwd, dsn=dbhost)
         cur = db.cursor()
 
-##push test
+##push test aa
 
         ##push test
         ##push test
