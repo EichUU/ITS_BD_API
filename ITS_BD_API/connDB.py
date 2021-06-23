@@ -23,6 +23,9 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
 
 ##push test
 
+        ##push test
+        ##push test
+
         return cur
 
     elif dbtype == "tibero":
