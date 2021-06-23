@@ -23,7 +23,7 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
 
         return cur
 
-    elif dbtype == "tibero":
+    elif dbtype == "tibero": aa
 
         cur = pyodbc.connect('DSN=' + dsname + ';UID=' + dbuser + ';PWD=' + dbpwd)
         # cur.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
