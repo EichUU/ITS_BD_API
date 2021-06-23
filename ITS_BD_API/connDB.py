@@ -21,9 +21,11 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         db = cx_Oracle.connect(user=dbuser, password=dbpwd, dsn=dbhost)
         cur = db.cursor()
 
+##push test
+
         return cur
 
-    elif dbtype == "tibero": aa
+    elif dbtype == "tibero":
 
         cur = pyodbc.connect('DSN=' + dsname + ';UID=' + dbuser + ';PWD=' + dbpwd)
         # cur.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
