@@ -57,7 +57,7 @@ FLOAT_TYPE = {"float_", "float", "float16", "float32", "float64"}
 
 # test => host='203.247.194.215', port=61379, db=0
 # deploy => host='10.111.82.182', port=6379, db=0
-r_pool = redis.ConnectionPool(host='10.111.82.182', port=6379, db=0)
+r_pool = redis.ConnectionPool(host='192.168.0.100', port=6379, db=0)
 # r_pool = redis.ConnectionPool(host='203.247.194.215', port=61379, db=0)
 from dbcon.connDB import get_conn
 # HIVE CONNECTION INFO
@@ -150,10 +150,14 @@ def get_data_from_redis(key):
 
 
 def set_data_to_redis(df):
+    print(r_pool)
     r = redis.Redis(connection_pool=r_pool)
+    print(1)
     # context = pa.default_serialization_context()
     uuid1 = get_uuid()
+    print(2)
     r.set(uuid1, pa.serialize(df).to_buffer().to_pybytes())
+    print(3)
     return uuid1
 
 
@@ -331,6 +335,7 @@ def hive_query(request):
 
 
 def select_query(request):
+    print(request)
     try:
         # global connection
         # global gongt_connection
@@ -353,17 +358,48 @@ def select_query(request):
         global connection_tibero
         global connection_hive
         start = time.time()
-        query = request.args.get("query", default=None, type=str)
-        name = request.args.get("name", default=None, type=str)
-        t_user = request.args.get("tuser", default="HAKSA", type=str)
-        columns = request.args.get("columns", default=None, type=str)
-        cocd_columns = request.args.get("cocdcol", default=None)
-        cocd_code = request.args.get("codes", default=None)
-        exclusion = request.args.get("exclusion", default=None)
-        t_user = t_user.upper()
+
+        query = ""
+        name = ""
+        t_user = ""
+        columns = ""
+        cocd_columns = ""
+        cocd_code = ""
+        exclusion = ""
+        t_user = ""
+
+        body_unicode = request.body.decode('utf-8')
+        if len(body_unicode) != 0:
+            body = json.loads(body_unicode)
+            query = body['query']
+            name = body['name']
+            t_user = body['t_user']
+            columns = body['columns']
+            cocd_columns = body['cocd_columns']
+            cocd_code = body['cocd_code']
+            exclusion = body['exclusion']
+            t_user = body['tuser']
+
+        else:
+            query = request.GET.get("query")
+            name = request.GET.get("name")
+            t_user = request.GET.get("t_user")
+            columns = request.GET.get("columns")
+            cocd_columns = request.GET.get("cocd_columns")
+            cocd_code = request.GET.get("cocd_code")
+            exclusion = request.GET.get("exclusion")
+            t_user = request.GET.get("tuser")
+        # query = request.args.get("query", default=None, type=str)
+        # name = request.args.get("name", default=None, type=str)
+        # t_user = request.args.get("tuser", default="HAKSA", type=str)
+        # columns = request.args.get("columns", default=None, type=str)
+        # cocd_columns = request.args.get("cocdcol", default=None)
+        # cocd_code = request.args.get("codes", default=None)
+        # exclusion = request.args.get("exclusion", default=None)
+        # t_user = t_user.upper()
         logger.debug(query)
         col_list = []
-
+        print(query)
         # res = connection.execute(query)
         # connection.set_character_set('utf8')
         query_result = pd.DataFrame()
@@ -429,28 +465,28 @@ def select_query(request):
         except cx_Oracle.DatabaseError:
             logger.debug("DatabaseError... will be new connection open.")
             print("DatabaseError... will be new connection open.")
-            connection = cx_Oracle.connect("HAKSA", "!#HAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            connection.callTimeout = 0
-            gongt_connection = cx_Oracle.connect("GONGT", "!#GONGT*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            gongt_connection.callTimeout = 0
-            ghaksa_connection = cx_Oracle.connect("GHAKSA", "!#GHAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            ghaksa_connection.callTimeout = 0
-            hangj_connection = cx_Oracle.connect("HANGJ", "!#HANGJ*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            hangj_connection.callTimeout = 0
-            resch_connection = cx_Oracle.connect("RESCH", "!#RESCH*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            resch_connection.callTimeout = 0
-            buseol_connection = cx_Oracle.connect("BUSEOL", "!#BUSEOL*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            buseol_connection.callTimeout = 0
-            abeek_connection = cx_Oracle.connect("ABEEK", "!#ABEEK*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            abeek_connection.callTimeout = 0
-            lifedu_connection = cx_Oracle.connect("LIFEDU", "!#LIFEDU*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            lifedu_connection.callTimeout = 0
-            cary_connection = cx_Oracle.connect("CARY", "!#CARY*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            cary_connection.callTimeout = 0
-            stats_connection = cx_Oracle.connect("STATS", "!#STATS*", "192.168.102.70:1521/SMISBK?expire_time=2")
-            stats_connection.callTimeout = 0
-            thaksa_connection = cx_Oracle.connect("thaksa_new", "THAKSA", "203.247.194.209:1521/XE?expire_time=2")
-            thaksa_connection.callTimeout = 0
+            # connection = cx_Oracle.connect("HAKSA", "!#HAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # connection.callTimeout = 0
+            # gongt_connection = cx_Oracle.connect("GONGT", "!#GONGT*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # gongt_connection.callTimeout = 0
+            # ghaksa_connection = cx_Oracle.connect("GHAKSA", "!#GHAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # ghaksa_connection.callTimeout = 0
+            # hangj_connection = cx_Oracle.connect("HANGJ", "!#HANGJ*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # hangj_connection.callTimeout = 0
+            # resch_connection = cx_Oracle.connect("RESCH", "!#RESCH*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # resch_connection.callTimeout = 0
+            # buseol_connection = cx_Oracle.connect("BUSEOL", "!#BUSEOL*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # buseol_connection.callTimeout = 0
+            # abeek_connection = cx_Oracle.connect("ABEEK", "!#ABEEK*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # abeek_connection.callTimeout = 0
+            # lifedu_connection = cx_Oracle.connect("LIFEDU", "!#LIFEDU*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # lifedu_connection.callTimeout = 0
+            # cary_connection = cx_Oracle.connect("CARY", "!#CARY*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # cary_connection.callTimeout = 0
+            # stats_connection = cx_Oracle.connect("STATS", "!#STATS*", "192.168.102.70:1521/SMISBK?expire_time=2")
+            # stats_connection.callTimeout = 0
+            # thaksa_connection = cx_Oracle.connect("thaksa_new", "THAKSA", "203.247.194.209:1521/XE?expire_time=2")
+            # thaksa_connection.callTimeout = 0
         except Exception as e:
             logger.debug(e)
             resp = HttpResponse("exception occurs")
@@ -468,7 +504,7 @@ def select_query(request):
 
         # print(query_result.dtypes)
         # print(query_result.head(50).to_string())
-
+        print("=========================== 3")
         # 원래 컬럼 리스트 -> 들어온 순서대로 reindex 함
         query_result.columns = map(str.upper, query_result.columns)
         if columns is not None and columns != "null" and columns != "":
@@ -479,7 +515,7 @@ def select_query(request):
             appended_index = new_index.append(origin_index)
             dropped_index = appended_index.drop_duplicates(keep='first')
             query_result = query_result.reindex(columns=dropped_index)
-
+        print("=========================== 2")
         # origin_list = query_result.columns.tolist()
         # col_list_final = []
         # for col in col_list:
@@ -504,6 +540,7 @@ def select_query(request):
         # print(query_result[df_datetime].head(50).to_string())
         # print(df_obj)
         # query_result[df_obj] = query_result[df_obj].fillna('')
+        print("=========================== 4")
         query_result[df_int] = query_result[df_int].apply(pd.to_numeric, downcast='integer', errors='coerce')
         query_result[df_float] = query_result[df_float].apply(pd.to_numeric, downcast='float', errors='coerce')
         query_result[df_obj] = query_result[df_obj].astype('category')
@@ -524,7 +561,7 @@ def select_query(request):
             cocd_mod = cocd_mod.replace("\"", "")
             cocd_mod = cocd_mod.replace(" ", "")
             cocd_list = cocd_mod.split(",")
-
+            print("=========================== 5")
             if cocd_mod != "" and columns_mod != "":
                 query = ["SELECT COMM_CD, COMM_NM FROM COCD WHERE "]
                 old_list = []
@@ -538,12 +575,13 @@ def select_query(request):
                 query_final = "".join(query)
                 # print(query_final)
                 # res = list(gongt_connection.execute(query_final))
-                cur = thaksa_connection.cursor()
+                cur = connection_tibero.cursor()
                 cur.execute(query_final)
                 res = cur.fetchall()
 
                 # print(res)
                 # print(res)
+                print("=========================== 6")
                 for i, v in enumerate(res):
                     # print(type(v))
                     old_list.append(v[0])
@@ -561,6 +599,7 @@ def select_query(request):
         # print("exclusion")
         # data 제외필드 제외하는 부분
         if exclusion is not None:
+            print("=========================== 7")
             exclusion_mod = exclusion.replace("[", "")
             exclusion_mod = exclusion_mod.replace("]", "")
             exclusion_mod = exclusion_mod.replace("'", "")
@@ -586,7 +625,9 @@ def select_query(request):
             query_result.columns = rename_columns
         # print(query_result.head(100).to_string())
         print("time:", time.time()-start)
+        print("=========================== 8")
         uid = set_data_to_redis(query_result)
+        print("=========================== 8")
 
         # gongt_connection.close()
         # result = query_result.to_json(orient="records", force_ascii=False, date_format="iso")
@@ -598,6 +639,7 @@ def select_query(request):
         return uid, 200
         # return str(result), 200
     except Exception as e:
+        print("=========================== 1")
         logger.debug(e)
         resp = HttpResponse("exception occurs.")
         resp.headers['exception'] = str(e)
