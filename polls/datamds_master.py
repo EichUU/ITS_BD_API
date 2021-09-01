@@ -40,6 +40,8 @@ from sqlalchemy import create_engine
 #                             "192.168.102.70:1521/SMISBK", min=2, max=10, increment=1, threaded=True, encoding="UTF-8")
 
 # create logger
+from werkzeug.sansio.response import Response
+
 logger = logging.getLogger('mod')
 logger.setLevel(logging.DEBUG)
 # create console handler and set level to debug
@@ -57,7 +59,7 @@ FLOAT_TYPE = {"float_", "float", "float16", "float32", "float64"}
 
 # test => host='203.247.194.215', port=61379, db=0
 # deploy => host='10.111.82.182', port=6379, db=0
-r_pool = redis.ConnectionPool(host='192.168.0.100', port=6379, db=0)
+r_pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=0)
 # r_pool = redis.ConnectionPool(host='203.247.194.215', port=61379, db=0)
 from dbcon.connDB import get_conn
 # HIVE CONNECTION INFO
@@ -136,14 +138,16 @@ def get_uuid():
 
 
 def get_data_from_redis(key):
-    print(key)
+    print("get_data_from_redis====" + key)
     r = redis.Redis(connection_pool=r_pool)
     try:
         # context = pa.default_serialization_context()
+        print("get_data_from_redis====11111")
         data = pa.deserialize(r.get(key))
         df = pd.DataFrame(data)
         return df
     except Exception as e:
+        print("get_data_from_redis====2222222")
         logger.debug(e)
         logger.debug("redis key has no data or not exist.")
         return None
@@ -335,7 +339,7 @@ def hive_query(request):
 
 
 def select_query(request):
-    print(request)
+    #print(request)
     try:
         # global connection
         # global gongt_connection
@@ -540,7 +544,7 @@ def select_query(request):
         # print(query_result[df_datetime].head(50).to_string())
         # print(df_obj)
         # query_result[df_obj] = query_result[df_obj].fillna('')
-        print("=========================== 4")
+        print("select_query=========================== 4")
         query_result[df_int] = query_result[df_int].apply(pd.to_numeric, downcast='integer', errors='coerce')
         query_result[df_float] = query_result[df_float].apply(pd.to_numeric, downcast='float', errors='coerce')
         query_result[df_obj] = query_result[df_obj].astype('category')
@@ -581,7 +585,7 @@ def select_query(request):
 
                 # print(res)
                 # print(res)
-                print("=========================== 6")
+                print("select_query=========================== 6")
                 for i, v in enumerate(res):
                     # print(type(v))
                     old_list.append(v[0])
@@ -599,7 +603,7 @@ def select_query(request):
         # print("exclusion")
         # data 제외필드 제외하는 부분
         if exclusion is not None:
-            print("=========================== 7")
+            print("select_query=========================== 7")
             exclusion_mod = exclusion.replace("[", "")
             exclusion_mod = exclusion_mod.replace("]", "")
             exclusion_mod = exclusion_mod.replace("'", "")
@@ -627,7 +631,7 @@ def select_query(request):
         print("time:", time.time()-start)
         print("=========================== 8")
         uid = set_data_to_redis(query_result)
-        print("=========================== 8")
+        print("=========================== 9")
 
         # gongt_connection.close()
         # result = query_result.to_json(orient="records", force_ascii=False, date_format="iso")
@@ -636,7 +640,10 @@ def select_query(request):
         # del [[query_result]]
         # gc.collect()
         # query_result = pd.DataFrame()
-        return uid, 200
+        #return uid, 200
+        #return Response(uid, status=200 )
+        print("select_query= >uid========================== return" + uid)
+        return HttpResponse(uid, 200)
         # return str(result), 200
     except Exception as e:
         print("=========================== 1")
@@ -745,10 +752,22 @@ def string_to_asterisk(x):
 
 def get_data(request):
     # r = redis.Redis(connection_pool=r_pool)
+    body_unicode = request.body.decode('utf-8')
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        key = body['key']
+        head = int(body['head'])
+        columns = body['columns']
+    else:
+        key = request.GET.get("key")
+        head = int(request.GET.get("head"))
+        columns = request.GET.get("columns")
+    print("get_data==>key==>"+key + "head==columns=="+columns)
     try:
-        key = request.args.get("key")
-        head = request.args.get("head", type=int, default=0)
-        columns = request.args.get("columns", default=None)
+        #key = request.args.get("key")
+        #head = request.args.get("head", type=int, default=0)
+        #columns = request.args.get("columns", default=None)
+
         columns_list = []
         if columns is not None and columns != "null" and columns != "":
             columns_mod = columns.replace("[", "")
@@ -758,16 +777,17 @@ def get_data(request):
             columns_mod = columns_mod.replace(" ", "")
             columns_list = columns_mod.split(",")
         df = get_data_from_redis(key)
-        print(df.head(10).to_string())
+        #print("99999" + df.head(10).to_string())
         # print(df.to_string())
         # print(df.dtypes)
         if df is None:
+            print("df is None==>exception occurs.")
             resp = HttpResponse("exception occurs.")
             resp.headers['Content-Type'] = "text/plain; charset=utf-8"
             resp.headers['exception'] = "999003"
             resp.status_code = 400
             return resp
-
+        print("get_data==============1" + df.columns)
         col_list = set(df.columns)
         for col in col_list:
             col_name = col.split(".")[-1]
@@ -777,20 +797,30 @@ def get_data(request):
         # if len(columns_list) != 0:
         #     for col in columns_list:
         #         df[col] = df[col].apply(lambda x: string_to_asterisk(x))
+        print("get_data==============2")
         df_float = df.select_dtypes(include=FLOAT_TYPE).columns
         df[df_float] = df[df_float].astype(str)
         df[df_float] = df[df_float].astype(float)
+        print("get_data==============3")
 
         # df_obj = df.select_dtypes(include=['object']).columns
         # query_result[df_obj] = query_result[df_obj].fillna('')
         # df[df_float] = df[df_float].apply(pd.to_numeric, downcast='float', errors='coerce')
         # df[df_obj] = df[df_obj].astype('category')
+        print("get_data==============4")
+        print(head)
+
         if head == 0:
             # return str(df.to_dict('records'))
-            return df.to_json(orient='records', force_ascii=False, date_format="iso"), 200
+            print("get_data==============5" + df.to_json(orient='records', force_ascii=False, date_format="iso"))
+            return HttpResponse(df.to_json(orient='records', force_ascii=False, date_format="iso"), 200)
         else:
             # return str(df.iloc[0:head].to_dict('records'))
-            return df.iloc[0: head].to_json(orient='records', force_ascii=False, date_format="iso"), 200
+
+            print("get_data==============6")
+            print(df.to_json(orient='records'))
+            return HttpResponse(df.iloc[0: head].to_json(orient='records', force_ascii=False, date_format="iso"), 200)
+
         # data = r.get(key)
         # if data is not None:
         #     df = pd.DataFrame(json.loads(data))
@@ -809,6 +839,7 @@ def get_data(request):
         #     resp.status_code = 400
         #     return resp
     except Exception as e:
+        print("get_data==============7")
         resp = HttpResponse("exception occurs.")
         resp.headers['exception'] = str(e)
         resp.status_code = 400
@@ -836,30 +867,48 @@ def get_keys(request):
     keys = r.keys()
     for i, key in enumerate(keys):
         keys[i] = key.decode('ascii')
-    return str(keys), 200
+    return HttpResponse(str(keys), 200)
 
 
 
 def del_one(request):
+    body_unicode = request.body.decode('utf-8')
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        key = body['key']
+    else:
+        key = request.GET.get("key")
     r = redis.Redis(connection_pool=r_pool)
-    key = request.args.get("key")
+    #key = request.args.get("key")
+
+    print("==========del_one" + key)
     result = r.delete(key)
-    return str(result), 200
+    return HttpResponse(str(result), 200)
 
 
 
 def del_many(request):
+    body_unicode = request.body.decode('utf-8')
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        keys = body['keys']
+    else:
+        keys = request.GET.get("keys")
+    print("==========del_many" + keys)
     r = redis.Redis(connection_pool=r_pool)
-    keys = request.args.get("keys")
+    #keys = request.args.get("keys")
     total = 0
     keys_mod = keys.replace("[", "")
     keys_mod = keys_mod.replace("]", "")
     keys_mod = keys_mod.replace("'", "")
     keys_mod = keys_mod.replace("\"", "")
     keys_mod = keys_mod.replace(" ", "")
+    print("==========del_many>keys_mod>" + keys_mod)
     keys_list = keys_mod.split(",")
+    print("============del_many>keys_list")
     for key in keys_list:
+        print(">>>>>>>>>>>>>>>" + key)
         result = r.delete(key)
         total += int(result)
-    return str(total), 200
+    return HttpResponse(str(total), 200)
 

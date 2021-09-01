@@ -1,9 +1,11 @@
 import json
+import pyodbc
+import os
 
 from django.shortcuts import render
 from django.http import HttpResponse
 from pyhive import hive
-from dbconn.connDB import get_conn
+from dbcon.connDB import get_conn
 
 # Create your views here.
 def get_table(request):
@@ -14,30 +16,39 @@ def get_table(request):
     if len(body_unicode) != 0:
         body = json.loads(body_unicode)
         tspace = body['tspace']
+        tcate = body['tcate']
 
     else:
         tspace = request.GET.get("tspace")
+        tcate = request.GET.get("tcate")
 
     # get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
     # dbhost, dbport is not used in tibero. because tibero is connected of odbc
     # hive don't use dbuser, dbpwd
-    if tspace == "BIG_DATA":
+    if tcate == "BIG_DATA":
         cur = get_conn("hive", "", "", "", "192.168.0.133", 10000)
         cur.execute("show tables")
 
-    elif tspace == "UPMS":
+    elif tcate == "UPMS":
         cur = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
 
         cur = cur.execute(
             "select A.TABLE_NAME TABLE_NAME, A.OWNER TABLESPACE_NAME, B.COMMENTS COMMENTS, A.NUM_ROWS NUM_ROWS from ALL_TABLES A, ALL_TAB_COMMENTS B where A.TABLE_NAME = B.TABLE_NAME AND A.OWNER = '" + tspace + "' " +
             "UNION ALL SELECT A.VIEW_NAME TABLE_NAME, A.OWNER TABLESPACE_NAME, B.COMMENTS COMMENTS, 0 NUM_ROWS from ALL_VIEWS A, USER_TAB_COMMENTS B where A.VIEW_NAME = B.TABLE_NAME AND A.OWNER='" + tspace + "' ORDER BY TABLE_NAME")
 
+    elif tcate == "SQL":
+        cur = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
+        #스케쥴링에 등록 된 동적SQL에 대한 TABLE정보를 가지고 옴
+        cur = cur.execute(
+            "select A.TABLE_NAME TABLE_NAME, A.OWNER TABLESPACE_NAME, B.COMMENTS COMMENTS, A.NUM_ROWS NUM_ROWS "
+            "from ALL_TABLES A, ALL_TAB_COMMENTS B where A.TABLE_NAME = B.TABLE_NAME AND A.OWNER = 'UPMS' " +
+            "AND A.TABLE_NAME IN (select OBJ_TABLE from TPSYB060_M where MTHD_GB = 'SB4003') ORDER BY A.TABLE_NAME")
+
     else:
         return HttpResponse("No tspace")
 
     array_dict = []
     for it in cur.fetchall():
-        print(it)
         tables = dict()
         tables["TABLE_NAME"] = it[0]
         try:
@@ -96,12 +107,14 @@ def insertTable(request):
         strTableSpaceNm = body['tableSpace']
         strTableNm = body['tableNm']
         strTableComment = body['tableComment']
+        strCategoryNm = body['cateNm']
         strUserId = body['userID']
         strUserIp = body['userIP']
     else:
         strTableSpaceNm = request.GET.get("tableSpace")
         strTableNm = request.GET.get('tableNm')
         strTableComment = request.GET.get('tableComment')
+        strCategoryNm = request.GET.get('cateNm')
         strUserId = request.GET.get('userID')
         strUserIp = request.GET.get('userIP')
 
@@ -124,43 +137,50 @@ def insertTable(request):
         json_array = json.dumps(array_dict)
         return HttpResponse(json_array, content_type="application/json; charset=utf-8")
 
-    if strTableSpaceNm == "BIG_DATA":
+    if strCategoryNm == "BIG_DATA":
         # Hive
         host = "192.168.0.133"
         port = 10000
         conn = hive.Connection(host=host, port=port, auth="NOSASL", database="default")
-    elif strTableSpaceNm == "UPMS":
+    elif strCategoryNm == "UPMS":
         # 티베로
         DSNNAME = 'TIBERO'
         DBUSER = 'UPMS'
         DBPWD = 'UPMS12#$'
         conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
+        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
+    elif strCategoryNm == "SQL":
+        # 동적SQL문
+        DSNNAME = 'TIBERO'
+        DBUSER = 'UPMS'
+        DBPWD = 'UPMS12#$'
+        conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
+        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
     else:
         return HttpResponse("No tspace")
 
-    #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
-    rowColumnInfo = getTableColumnPK(conn, strTableSpaceNm, strTableNm)
+
     conn.close()
 
     #MDS관리 테이블에 정보를 저장
     mdsConn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
-    mdsConn.setencoding(encoding='utf-8')
+
+    #서버가 원도용가 아닐경우 아래 주석을 풀어주기
     mdsCursor = mdsConn.cursor()
-    mdsCursor.execute("""INSERT INTO T_MDS_TABLES_M (MDS_TABLE_SEQ, MDS_TABLE_USER, MDS_TNAME, MDS_TABLE_DESCRIPTION, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
-                        VALUES (SEQ_T_MDS_TABLES_01.NEXTVAL,?,?,?,?,?,SYSDATE,?,?,SYSDATE,?)""",
-                        strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp, strUserId, strUserIp)
+    mdsCursor.execute("""INSERT INTO T_MDS_TABLES_M (MDS_TABLE_SEQ, MDS_CATE_NM, MDS_TABLE_USER, MDS_TNAME, MDS_TABLE_DESCRIPTION, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
+                        VALUES (SEQ_T_MDS_TABLES_01.NEXTVAL,?,?,?,?,?,?,SYSDATE,?,?,SYSDATE,?)""",
+                        strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp, strUserId, strUserIp)
     mdsConn.commit()
 
-    for it in rowColumnInfo:
-        print(it[0])
-        print(it[1])
-        print(it[2])
-        print(it[3])
-        print(it[4])
-        mdsCursor.execute("""INSERT INTO T_MDS_COLUMNS_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
-                                        VALUES (?, SEQ_T_MDS_TABLES_01.CURRVAL, ?, ?, ?, ?, ?, ?, ?, SYSDATE, ?, ?, SYSDATE, ?)""",
-                          int(it[4]), it[0], it[1], it[2], it[3].strip(), int(it[4]), strUserId, strUserId, strUserIp, strUserId, strUserIp)
-        mdsConn.commit()
+
+    if strCategoryNm == "UPMS" or strCategoryNm == "SQL":
+        for it in rowColumnInfo:
+            mdsCursor.execute("""INSERT INTO T_MDS_COLUMNS_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
+                                            VALUES (?, SEQ_T_MDS_TABLES_01.CURRVAL, ?, ?, ?, ?, ?, ?, ?, SYSDATE, ?, ?, SYSDATE, ?)""",
+                              int(it[4]), it[0], it[1], it[2], it[3].strip(), int(it[4]), strUserId, strUserId, strUserIp, strUserId, strUserIp)
+            mdsConn.commit()
     # Connection 닫기
     mdsConn.close()
 

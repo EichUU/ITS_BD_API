@@ -30,7 +30,8 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         # cur.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
         # cur.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
         # cur.setdecoding(pyodbc.SQL_WMETADATA, encoding='utf-8')
-        cur.setencoding(encoding='utf-8')
+        if os.name != "nt":
+            cur.setencoding(encoding='utf-8')
 
     elif dbtype == "mssql":
         conn = pymssql.connect(host=dbhost, database=dsname, port=dbport, charset='utf8')
