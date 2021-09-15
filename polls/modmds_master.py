@@ -1338,6 +1338,7 @@ def contain(request):
         patterns_mod = patterns_mod.replace("\"", "")
         # patterns_mod = patterns_mod.replace(" ", "")
         patterns_list = patterns_mod.split(",")
+
         if len(columns_list) != len(patterns_list):
             resp = HttpResponse("Not correct columns or not same length with columns_list and patterns_list")
             resp.headers['exception'] = "999034"
@@ -1353,8 +1354,10 @@ def contain(request):
         # data = r.get(key)
         # if data is not None:
         #     df = pd.DataFrame(json.loads(data))
+
         for i, column in enumerate(columns_list):
-            df = df[df[column].str.contains(patterns_list[i])]
+            df = df[df[column].str.contains(patterns_list[i], na=False)]
+
         uuid1 = set_data_to_redis(df)
         # del [[df]]
         # gc.collect()
@@ -1430,14 +1433,15 @@ def comparison(request):
 
         # column values change to int or float type
         if intorfloat == "int":
-            df[column] = df[column].astype(str)
-            df[column] = df[column].replace(r'^\s*$', np.nan, regex=True)
             df[column] = df[column].fillna("0")
+            #df[column] = df[column].astype(str)
+            #df[column] = df[column].replace(r'^\s*$', np.NaN, regex=True)
+            #print(df[column])
             df = df.astype({column: int})
             value = int(value)
         elif intorfloat == "float":
             df[column] = df[column].astype(str)
-            df[column] = df[column].replace(r'^\s*$', np.nan, regex=True)
+            df[column] = df[column].replace(r'^\s*$', np.NaN, regex=True)
             df[column] = df[column].fillna("0.0")
             df = df.astype({column: float})
             value = float(value)
@@ -1902,8 +1906,14 @@ def get_data_groupby(request):
         # result_df = df.groupby(group_list)[[*columns_list]]
         # res_df = result_df.agg(method_list)
         # print(result_df.agg(['size', 'mean', 'std', 'min', 'max', 'count']))
+        print("=========================group_list")
+        print(group_list)
+        print("=========================f")
+        print(f)
         result_df = df.groupby(group_list)
         res_df = result_df.agg(f)
+        print("=========================res_df")
+        print(res_df)
         res_df.columns = ['_'.join(x) if isinstance(x, tuple) else x for x in res_df.columns.ravel()]
         # result = res_df.reset_index().to_json(force_ascii=False)
         uuid1 = set_data_to_redis(res_df.reset_index())
