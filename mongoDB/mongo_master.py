@@ -46,24 +46,39 @@ def createCollection(request):
 # path : 저장된 파일의 경로
 def documentInsert(request):
     body_unicode = request.body.decode('utf-8')
-
     if len(body_unicode) != 0:
         body = json.loads(body_unicode)
         db = body['db']
         col = body['col']
         path = body['path']
-
+        # header에 들어갈 컬럼들을 string으로 받아 json으로 변경함
+        header = json.loads(body['header'])
     else:
         db = request.GET.get("db")
         col = request.GET.get("col")
         path = request.GET.get("path")
+        # header에 들어갈 컬럼들을 string으로 받아 json으로 변경함
+        header = json.loads(request.GET.get("header"))
+
+    #documentKey값을 배열에 저장
+    documentKey = []
+    for docuKey in list(header):
+        # DOCUMENT_KEY에서 '.'이 있는 경우 . 뒤에 있는 항목으로 저장
+        if docuKey["DOCUMENT_KEY"].find(".") > 0:
+            documentKey.append(docuKey["DOCUMENT_KEY"].split('.')[1])
+        else:
+            documentKey.append(docuKey["DOCUMENT_KEY"])
 
     mongo = MongoClient(mongo_host, int(mongo_port))
-    df = pd.read_excel(path)
+
+    df = pd.read_excel(path, header=1, index_col=False, names=documentKey, skiprows=[0])
     df.reset_index(inplace=True)
+
+    df = df.drop(columns=["index"])
     dic = df.to_dict("records")
     database = mongo[db]
     collection = database[col]
+
     try:
         collection.insert_many(dic)
         resp = HttpResponse("{'SUCCESS_YN':'Y'}")
@@ -93,18 +108,20 @@ def mongoSelect(request):
         col = request.GET.get("col")
         query = request.GET.get("query")
 
-    host = "localhost"
+    host = "192.168.0.100"
     port = 27017
     mongo = MongoClient(host, int(port))
     database = mongo[db]
     collection = database[col]
     try:
         if query is None or query == '':
-            cur = collection.find({}).sort([("_id", -1)])
+            #cur = collection.find_one()
+            cur = objectIdDecoder(collection.find({}).sort([("_id", -1)]))
         else:
-            cur = collection.find(json.loads(query)).sort([("_id", -1)])
+            cur = objectIdDecoder(collection.find(json.loads(query)).sort([("_id", -1)]))
 
-        cur = dumps(list(cur))
+        list_cur = list(cur)
+        cur = dumps(list_cur)
         resp = HttpResponse(cur)
         resp.status_code = 200
         return resp
@@ -190,3 +207,10 @@ def createIRCollection(request):
     except:
         resp = HttpResponse(status=400)
         return resp
+
+def objectIdDecoder(list):
+  results=[]
+  for document in list:
+    document['_id'] = str(document['_id'])
+    results.append(document)
+  return results
