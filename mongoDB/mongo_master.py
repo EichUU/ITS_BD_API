@@ -1,11 +1,17 @@
 import json
+
+import bson
+import pql
 import pandas as pd
 from pymongo import MongoClient
 from django.http import HttpResponse
 from bson.json_util import dumps, loads
 
+from bson.objectid import ObjectId
+
 mongo_host = "192.168.0.100"
 mongo_port = 27017
+
 
 # 몽고디비 collection 생성
 # host : mongodb 주소
@@ -22,7 +28,6 @@ def createCollection(request):
         collection = request.GET.get("collection")
         dbs = request.GET.get("dbs")
 
-
     mongoconn = MongoClient(mongo_host, int(mongo_port))
     database = mongoconn[dbs]
     try:
@@ -34,7 +39,7 @@ def createCollection(request):
         else:
             newcol = database.create_collection(collection)
             print(database.list_collection_names())
-            return HttpResponse(json.dumps({'DB_YN':'Y'}), 200)
+            return HttpResponse(json.dumps({'DB_YN': 'Y'}), 200)
     except:
         resp = HttpResponse(status=400)
         return resp
@@ -60,7 +65,7 @@ def documentInsert(request):
         # header에 들어갈 컬럼들을 string으로 받아 json으로 변경함
         header = json.loads(request.GET.get("header"))
 
-    #documentKey값을 배열에 저장
+    # documentKey값을 배열에 저장
     documentKey = []
     for docuKey in list(header):
         # DOCUMENT_KEY에서 '.'이 있는 경우 . 뒤에 있는 항목으로 저장
@@ -95,30 +100,53 @@ def documentInsert(request):
 # db : mongodb database
 # col : mongodb collection
 # query : mongodb select 조건문(json 형태로 입력)
+# pql 사용 법 : https://github.com/alonho/pql 참고
+
+##############################################################################################################
+# pql 처음 설치 시 (3.8버전 이상)                                                                               #
+# External Libraries -> site-packages -> pql -> matching.py                                                 #
+# https://github.com/comfuture/pql/blob/331739a02ccde5a68674e80e20181f687abd13a2/pql/matching.py 으로 수정    #
+##############################################################################################################
 def mongoSelect(request):
     body_unicode = request.body.decode('utf-8')
+
     if len(body_unicode) != 0:
         body = json.loads(body_unicode)
         db = body['db']
         col = body['col']
         query = body['query']
+        limit = body['limit']
+        sort = body['sort']
+        skip = body['skip']
 
     else:
         db = request.GET.get("db")
         col = request.GET.get("col")
         query = request.GET.get("query")
+        limit = request.GET.get("limit")
+        sort = request.GET.get("sort")
+        skip = request.GET.get("skip")
 
-    host = "192.168.0.100"
-    port = 27017
-    mongo = MongoClient(host, int(port))
+    if limit is None:
+        limit = 1
+
+    if sort is None:
+        sort = [("_id", -1)]
+
+    if skip is None:
+        skip = 0
+
+    mongo = MongoClient(mongo_host, int(mongo_port))
     database = mongo[db]
     collection = database[col]
+
     try:
+        print(query)
+        print(pql.find(query))
         if query is None or query == '':
-            #cur = collection.find_one()
-            cur = objectIdDecoder(collection.find({}).sort([("_id", -1)]))
+            cur = objectIdDecoder(collection.find({}).sort(sort).limit(limit))
         else:
-            cur = objectIdDecoder(collection.find(json.loads(query)).sort([("_id", -1)]))
+            cur = objectIdDecoder(collection.find(pql.find(query)).sort(sort).limit(limit))
 
         list_cur = list(cur)
         cur = dumps(list_cur)
@@ -127,8 +155,10 @@ def mongoSelect(request):
         return resp
 
     except Exception as e:
+        print(e)
         resp = HttpResponse(status=400)
         return resp
+
 
 # 몽고디비 삭제가능여부 체크
 # database는 collection이 존재하면 삭제 불가, collection은 document가 존재하면 삭제 불가
@@ -208,9 +238,10 @@ def createIRCollection(request):
         resp = HttpResponse(status=400)
         return resp
 
+
 def objectIdDecoder(list):
-  results=[]
-  for document in list:
-    document['_id'] = str(document['_id'])
-    results.append(document)
-  return results
+    results = []
+    for document in list:
+        document['_id'] = str(document['_id'])
+        results.append(document)
+    return results
