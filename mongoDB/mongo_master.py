@@ -100,6 +100,8 @@ def documentInsert(request):
 # db : mongodb database
 # col : mongodb collection
 # query : mongodb select 조건문(json 형태로 입력)
+
+# pql쿼리는 SUST_CD=="A-1" 요런식으로 사용
 # pql 사용 법 : https://github.com/alonho/pql 참고
 
 ##############################################################################################################
