@@ -117,36 +117,35 @@ def mongoSelect(request):
         db = body['db']
         col = body['col']
         query = body['query']
-        limit = body['limit']
-        sort = body['sort']
-        skip = body['skip']
+        #limit = body['limit']
+        #sort = body['sort']
+        #skip = body['skip']
 
     else:
         db = request.GET.get("db")
         col = request.GET.get("col")
         query = request.GET.get("query")
-        limit = request.GET.get("limit")
-        sort = request.GET.get("sort")
-        skip = request.GET.get("skip")
+        #limit = request.GET.get("limit")
+        #sort = request.GET.get("sort")
+        #skip = request.GET.get("skip")
 
-    if limit is None:
-        limit = 1
+    #if limit is None:
+    #    limit = 1
 
-    if sort is None:
-        sort = [("_id", -1)]
+    #if sort is None:
+    #    sort = [("_id", -1)]
 
-    if skip is None:
-        skip = 0
+    #if skip is None:
+    #    skip = 0
 
     mongo = MongoClient(mongo_host, int(mongo_port))
     database = mongo[db]
     collection = database[col]
 
     try:
-        print(query)
-        print(pql.find(query))
         if query is None or query == '':
-            cur = objectIdDecoder(collection.find({}).sort(sort).limit(limit))
+            cur = objectIdDecoder(collection.find({}))
+            #.sort(sort).limit(limit))
         else:
             cur = objectIdDecoder(collection.find(pql.find(query)).sort(sort).limit(limit))
 
