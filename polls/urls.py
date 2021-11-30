@@ -9,6 +9,7 @@ urlpatterns = [
     path('getColumn', views.get_column, name='get_columns'),
     path('insertTable', views.insertTable, name='insertTable'),
     path('query', dm.select_query, name='select_query'),
+    path('mongodb_query', dm.mongodb_query, name='mongodb_query'),
     path('usermds', dm.user_mds, name="user_mds"),
     path('file', dm.file_open, name="file_open"),
     path('get', dm.get_data, name="get_data"),

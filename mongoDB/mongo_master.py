@@ -65,6 +65,9 @@ def documentInsert(request):
         # header에 들어갈 컬럼들을 string으로 받아 json으로 변경함
         header = json.loads(request.GET.get("header"))
 
+    print("db====>"+db)
+    print("db====>" + col)
+    print("db====>" + path)
     # documentKey값을 배열에 저장
     documentKey = []
     for docuKey in list(header):
@@ -147,7 +150,7 @@ def mongoSelect(request):
             cur = objectIdDecoder(collection.find({}))
             #.sort(sort).limit(limit))
         else:
-            cur = objectIdDecoder(collection.find(pql.find(query)).sort(sort).limit(limit))
+            cur = objectIdDecoder(collection.find(pql.find(query)))
 
         list_cur = list(cur)
         cur = dumps(list_cur)

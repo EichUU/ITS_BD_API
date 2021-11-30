@@ -10,6 +10,9 @@ import uuid
 import json
 import logging
 import time
+import bson
+import pql
+
 from pandas.io.sql import DatabaseError
 from django.http import HttpResponse
 
@@ -62,9 +65,17 @@ FLOAT_TYPE = {"float_", "float", "float16", "float32", "float64"}
 r_pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=0)
 # r_pool = redis.ConnectionPool(host='203.247.194.215', port=61379, db=0)
 from dbcon.connDB import get_conn
+from pymongo import MongoClient
+from bson.json_util import dumps, loads
+from bson.objectid import ObjectId
+
 # HIVE CONNECTION INFO
 host = "203.247.194.212"
 port = 10000
+
+# MongDB CONNECTION INFO
+mongo_host = "192.168.0.100"
+mongo_port = 27017
 
 # expire_time = 2 : 2분 주기로 connection check(ping)
 
@@ -337,6 +348,144 @@ def hive_query(request):
     uid = set_data_to_redis(df)
     return uid, 200
 
+def mongodb_query(request):
+    body_unicode = request.body.decode('utf-8')
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        name = body['name']
+        columns = body['columns']
+        exclusion = body['exclusion']
+        db = body['tuser']
+        col = body['col']
+        query = body['nosqlquery']
+        projection = body['projection']
+        sort = body['sort']
+        # limit = body['limit']
+        # sort = body['sort']
+        # skip = body['skip']
+
+    else:
+        name = request.GET.get("name")
+        columns = request.GET.get("columns")
+        exclusion = request.GET.get("exclusion")
+        db = request.GET.get("tuser")
+        col = request.GET.get("col")
+        query = request.GET.get("nosqlquery")
+        projection = request.GET.get("projection")
+        sort = request.GET.get("sort")
+        # limit = request.GET.get("limit")
+        # sort = request.GET.get("sort")
+        # skip = request.GET.get("skip")
+
+    # if limit is None:
+    #    limit = 1
+
+    # if sort is None:
+    #    sort = [("_id", -1)]
+
+    # if skip is None:
+    #    skip = 0
+
+    print("name===========================1" + name)
+    #print("columns===========================2" + columns)
+    print("db=========================== 7" + db)
+    print("col=========================== 7" + col)
+    print("query=========================== 7" + query)
+    print("projection=========================== 7" + projection)
+    print("sort=========================== 7" + sort)
+    print(json.loads(query))
+
+    mongo = MongoClient(mongo_host, int(mongo_port))
+    database = mongo[db]
+    collection = database[col]
+    query_result = pd.DataFrame()
+    try:
+        if query is None or query == '':
+            cursor = objectIdDecoder(collection.find({}))
+            # .sort(sort).limit(limit))
+        else:
+            json_cache = {}
+            json_cache['$match'] = json.loads(query)
+            json_cache['$group'] = json.loads(projection)
+            print(json_cache)
+
+            #strquery = '{$match: {"YY": "2018"}, $group: {"_id": "$YY", "STD_CNT_SUM": {"$sum": "$STD_CNT"}}}'
+
+            #print(json.loads(strquery))
+
+            #cursor = objectIdDecoder(collection.aggregate(json.loads(strquery)))
+
+            #cursor = objectIdDecoder(collection.find({'YY':'2018'}))
+            cursor = objectIdDecoder(collection.find(json.loads(query)))
+            #cursor = objectIdDecoder(collection.find(pql.find(query)))
+
+        #Mongdb query결과를 DataFrame 저장
+        query_result = pd.DataFrame(list(cursor))
+
+    except Exception as e:
+        print(e)
+        resp = HttpResponse("exception occurs")
+        resp.headers['exception'] = "999002"
+        resp.status_code = 400
+        return resp
+    print(query_result)
+
+    if query_result is None:
+        resp = HttpResponse("exception occurs.")
+        resp.headers['Content-Type'] = "text/plain; charset=utf-8"
+        resp.headers['exception'] = "999003"
+        resp.status_code = 400
+        return resp
+
+    # 원래 컬럼 리스트 -> 들어온 순서대로 reindex 함
+    query_result.columns = map(str.upper, query_result.columns)
+    if columns is not None and columns != "null" and columns != "":
+        col_mod = columns.replace("[", "").replace("]", "").replace("'", "").replace("\"", "")
+        col_list = col_mod.split(",")
+        origin_index = query_result.columns
+        new_index = pd.Index(col_list)
+        appended_index = new_index.append(origin_index)
+        dropped_index = appended_index.drop_duplicates(keep='first')
+        query_result = query_result.reindex(columns=dropped_index)
+
+    print("data 제외필드 제외하는 부분")
+    # data 제외필드 제외하는 부분
+    if exclusion is not None:
+        exclusion_mod = exclusion.replace("[", "")
+        exclusion_mod = exclusion_mod.replace("]", "")
+        exclusion_mod = exclusion_mod.replace("'", "")
+        exclusion_mod = exclusion_mod.replace("\"", "")
+        exclusion_mod = exclusion_mod.replace(" ", "")
+        exclusion_list = exclusion_mod.split(",")
+        if exclusion_mod != "":
+            col_list = set(query_result.columns)
+            drop_list = []
+            for exe in exclusion_list:
+                if exe in col_list:
+                    drop_list.append(exe)
+            # print(drop_list)
+            if len(drop_list) != 0:
+                query_result = query_result.drop(drop_list, axis=1)
+
+    print("컬럼 앞에 MDS 이름 붙이는 부분")
+    # 컬럼 앞에 MDS 이름 붙이는 부분
+    if name is not None:
+        columns = query_result.columns
+        rename_columns = []
+        for column in columns:
+            rename_columns.append(name + "." + str(column))
+        query_result.columns = rename_columns
+
+    uid = set_data_to_redis(query_result)
+
+    return HttpResponse(uid, 200)
+
+def objectIdDecoder(list):
+    results = []
+    for document in list:
+        document['_id'] = str(document['_id'])
+        results.append(document)
+    return results
 
 def select_query(request):
     #print(request)
@@ -401,9 +550,10 @@ def select_query(request):
         # cocd_code = request.args.get("codes", default=None)
         # exclusion = request.args.get("exclusion", default=None)
         # t_user = t_user.upper()
+
         logger.debug(query)
         col_list = []
-        print(query)
+        print(t_user)
         # res = connection.execute(query)
         # connection.set_character_set('utf8')
         query_result = pd.DataFrame()

@@ -44,6 +44,14 @@ def get_table(request):
             "from ALL_TABLES A, ALL_TAB_COMMENTS B where A.TABLE_NAME = B.TABLE_NAME AND A.OWNER = 'UPMS' " +
             "AND A.TABLE_NAME IN (select OBJ_TABLE from TPSYB060_M where MTHD_GB = 'SB4003') ORDER BY A.TABLE_NAME")
 
+    elif tcate == "NoSql":
+        cur = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
+        #비정형계(NoSql:MongoDB) IR_RESULT유저를 제외함.
+        cur = cur.execute(
+            "SELECT DATABASE_NM TABLE_NAME, UP_DATABASE_NM TABLESPACE_NAME, DATABASE_COMMENT COMMENTS, 0 NUM_ROWS, DATABASE_ID ID_KEY "
+            "FROM T_MONGO_M  " +
+            "WHERE DATABASE_LEVEL='2' AND NVL(USE_YN, 'Y') = 'Y' AND UP_DATABASE_ID NOT IN ('00001') ORDER BY UP_DATABASE_NM, DATABASE_NM ")
+
     else:
         return HttpResponse("No tspace")
 
@@ -59,12 +67,17 @@ def get_table(request):
         try:
             tables["COMMENTS"] = it[2]
         except IndexError:
-            tables["NUM_ROWS"] = ''
+            tables["COMMENTS"] = ''
 
         try:
             tables["NUM_ROWS"] = it[3]
         except IndexError:
             tables["NUM_ROWS"] = ''
+
+        try:
+            tables["ID_KEY"] = it[4]
+        except IndexError:
+            tables["ID_KEY"] = ''
 
         array_dict.append(tables)
         json_array = json.dumps(array_dict)
@@ -158,6 +171,14 @@ def insertTable(request):
         conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
         #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
         rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
+    elif strCategoryNm == "NoSql":
+        # NoSql(MongoDB)에 관한 Collection정보를 가져옴
+        DSNNAME = 'TIBERO'
+        DBUSER = 'UPMS'
+        DBPWD = 'UPMS12#$'
+        conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
+        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        rowColumnInfo = getNoSqlDocument(conn, strTableSpaceNm, strTableNm)
     else:
         return HttpResponse("No tspace")
 
@@ -175,7 +196,7 @@ def insertTable(request):
     mdsConn.commit()
 
 
-    if strCategoryNm == "UPMS" or strCategoryNm == "SQL":
+    if strCategoryNm == "UPMS" or strCategoryNm == "SQL" or strCategoryNm == "NoSql":
         for it in rowColumnInfo:
             mdsCursor.execute("""INSERT INTO T_MDS_COLUMNS_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
                                             VALUES (?, SEQ_T_MDS_TABLES_01.CURRVAL, ?, ?, ?, ?, ?, ?, ?, SYSDATE, ?, ?, SYSDATE, ?)""",
@@ -213,5 +234,23 @@ def getTableColumnPK( dbConn, tableOwner, tableNm ) :
                 ORDER BY T1.COLUMN_ID"""
     cur = dbConn.execute(strSql)
     retRow = cur.fetchall()
+
+    return retRow
+
+#NoSql Document Key, Key 설명 정보를 가지고 옴
+def getNoSqlDocument( dbConn, tableOwner, tableNm ) :
+    print("==" + tableOwner)
+    dbConn.setencoding(encoding='utf-8')
+    strSql = """SELECT T1.DOCUMENT_KEY AS COLUMN_NAME, 'VARCHAR' AS DATA_TYPE, T1.DOCUMENT_COMMENT AS COMMENTS 
+                     , 'N' AS PK_YN, T1.SORT_ORD AS COLUMN_ID
+                FROM T_MONGO_DOCU_D T1 
+                   , T_MONGO_M T2 
+                WHERE T1.DATABASE_ID = T2.DATABASE_ID
+                  AND NVL(T1.USE_YN, 'Y') = 'Y'
+                  AND T2.UP_DATABASE_NM='""" + tableOwner +"""' AND T2.DATABASE_NM ='"""+ tableNm +"""'
+                ORDER BY T1.SORT_ORD"""
+    cur = dbConn.execute(strSql)
+    retRow = cur.fetchall()
+    print(retRow)
 
     return retRow
