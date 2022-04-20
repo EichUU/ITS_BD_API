@@ -21,13 +21,19 @@ def get_table(request):
     else:
         tspace = request.GET.get("tspace")
         tcate = request.GET.get("tcate")
-
+    print(tspace, tcate)
     # get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
     # dbhost, dbport is not used in tibero. because tibero is connected of odbc
     # hive don't use dbuser, dbpwd
     if tcate == "BIG_DATA":
-        cur = get_conn("hive", "", "", "", "192.168.0.133", 10000)
-        cur.execute("show tables")
+        print(tcate)
+        try:
+#            cur = get_conn("hive", "", "", "", "172.17.0.2", 10000)
+            cur = get_conn("mariadb", "hive", "root", "mapsco1338", "172.17.0.2", "3306")
+            print(cur)
+            cur.execute("""SELECT T1.TBL_NAME AS TABLE_NAME, '' AS TABLESPACE_NAME, T2.PARAM_VALUE AS COMMENTS FROM TBLS T1 LEFT OUTER JOIN TABLE_PARAMS T2 ON T1.TBL_ID = T2.TBL_ID AND T2.PARAM_KEY = 'COMMENT'""")
+        except Exception as e:
+            print(e)
 
     elif tcate == "UPMS":
         cur = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
@@ -155,7 +161,12 @@ def insertTable(request):
         host = "192.168.0.133"
         port = 10000
         conn = hive.Connection(host=host, port=port, auth="NOSASL", database="default")
-    elif strCategoryNm == "UPMS":
+        try:
+            rowColumnInfo = getBigDataColumnPK(conn, "", strTableNm)
+        except Exception as e:
+            print(e)
+        print(rowColumnInfo)
+    elif strCategoryNm == "THAKSA_NEW":
         # 티베로
         DSNNAME = 'TIBERO'
         DBUSER = 'UPMS'
@@ -202,6 +213,21 @@ def insertTable(request):
                                             VALUES (?, SEQ_T_MDS_TABLES_01.CURRVAL, ?, ?, ?, ?, ?, ?, ?, SYSDATE, ?, ?, SYSDATE, ?)""",
                               int(it[4]), it[0], it[1], it[2], it[3].strip(), int(it[4]), strUserId, strUserId, strUserIp, strUserId, strUserIp)
             mdsConn.commit()
+
+
+    elif strCategoryNm == "BIG_DATA":
+        for idx, val in enumerate(rowColumnInfo):
+            COLUMN_ID_SEQ = idx
+            MDS_COLUMN_NAME = val[0]
+            COLUMN_KEY_YN = "N"
+            MDS_COLUMN_TYPE= val[1]
+            MDS_COLUMN_DESCRIPTION = val[2]
+
+            mdsCursor.execute("""INSERT INTO T_MDS_COLUMNS_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
+                                            VALUES (:MDS_COLUMN_SEQ, SEQ_T_MDS_TABLES_01.CURRVAL, :MDS_COLUMN_NAME, :MDS_COLUMN_TYPE, :MDS_COLUMN_DESCRIPTION, :COLUMN_KEY_YN, :COLUMN_ID_SEQ, :strUserId, :strUserId, SYSDATE, :strUserIp, :strUserId, SYSDATE, :strUserIp)""",(COLUMN_ID_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, strUserId, strUserId, strUserIp, strUserId, strUserIp))
+            mdsConn.commit()
+
+
     # Connection 닫기
     mdsConn.close()
 
@@ -253,4 +279,11 @@ def getNoSqlDocument( dbConn, tableOwner, tableNm ) :
     retRow = cur.fetchall()
     print(retRow)
 
+    return retRow
+
+def getBigDataColumnPK(dbConn, tableOwner, tableNm):
+    strSql = """DESC """ + tableNm
+    cur = dbConn.cursor()
+    cur.execute(strSql)
+    retRow = cur.fetchall()
     return retRow

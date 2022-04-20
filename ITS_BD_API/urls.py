@@ -19,5 +19,7 @@ from django.urls import path, include
 urlpatterns = [
     path('', include('polls.urls')),
     path('', include('mongoDB.urls')),
-    path('admin/', admin.site.urls),
+    path('', include('hbase.urls')),
+    path('', include('analyze.urls')),
+    #path('admin/', admin.site.urls),
 ]

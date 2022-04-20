@@ -1,11 +1,17 @@
-from django.urls import path
+from django.conf.urls.static import static
+from django.urls import path, include
+from django.conf import settings
 
 from . import views
 from . import datamds_master as dm
 from . import modmds_master as modmds
 
 urlpatterns = [
+    path('', include('mongoDB.urls')),
+    path('', include('hbase.urls')),
+    path('', include('analyze.urls')),
     path('getTable', views.get_table, name='get_table'),
+    path('hive_query', dm.hive_query, name='hive_query'),
     path('getColumn', views.get_column, name='get_columns'),
     path('insertTable', views.insertTable, name='insertTable'),
     path('query', dm.select_query, name='select_query'),
@@ -53,3 +59,5 @@ urlpatterns = [
     path('csv-download', modmds.download, name="csv-download"),
     path('excel-download', modmds.download_excel, name="excel-download")
 ]
+
+urlpatterns += static('media', ducument_root=settings.MEDIA_URL)

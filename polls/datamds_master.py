@@ -62,7 +62,7 @@ FLOAT_TYPE = {"float_", "float", "float16", "float32", "float64"}
 
 # test => host='203.247.194.215', port=61379, db=0
 # deploy => host='10.111.82.182', port=6379, db=0
-r_pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=0)
+r_pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
 # r_pool = redis.ConnectionPool(host='203.247.194.215', port=61379, db=0)
 from dbcon.connDB import get_conn
 from pymongo import MongoClient
@@ -74,8 +74,8 @@ host = "203.247.194.212"
 port = 10000
 
 # MongDB CONNECTION INFO
-mongo_host = "192.168.0.100"
-mongo_port = 27017
+mongo_host = "192.168.0.193"
+mongo_port = 20000
 
 # expire_time = 2 : 2분 주기로 connection check(ping)
 
@@ -176,6 +176,7 @@ def set_data_to_redis(df):
     return uuid1
 
 
+
 # def check_db():
 #     ysql = 'select 0 from dual'
 #     try:
@@ -206,14 +207,26 @@ def json_to_redis(request):
 
 
 def hive_query(request):
-    start = time.time()
-    query = request.args.get("query", default=None, type=str)
-    name = request.args.get("name", default=None, type=str)
-    columns = request.args.get("columns", default=None, type=str)
-    cocd_columns = request.args.get("cocdcol", default=None)
-    cocd_code = request.args.get("codes", default=None)
-    exclusion = request.args.get("exclusion", default=None)
-    query_split = query.split("ROWNUM")
+    body_unicode = request.body.decode('utf-8')
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        start = time.time()
+        query = body['query']
+        name = body['name']
+        columns = body['columns']
+        cocd_columns = body['cocdcol']
+        cocd_code = body['codes']
+        exclusion = body['exclusion']
+        query_split = query.split("ROWNUM")
+    else:
+        start = time.time()
+        query = request.GET.get("query")
+        name = request.GET.get("name")
+        columns = request.GET.get("columns")
+        cocd_columns = request.GET.get("cocdcol")
+        cocd_code = request.GET.get("codes")
+        exclusion = request.GET.get("exclusion")
+        query_split = query.split("ROWNUM")
     if len(query_split) > 1:
         l_query = "".join(query_split[0].rsplit("AND", 1))
         query = l_query + "LIMIT" + query_split[-1].replace("<", " ").replace("=", " ")
@@ -247,14 +260,16 @@ def hive_query(request):
 
     # 원래 컬럼 리스트 -> 들어온 순서대로 reindex 함
     df.columns = map(str.upper, df.columns)
-    if columns is not None and columns != "null" and columns != "":
-        col_mod = columns.replace("[", "").replace("]", "").replace("'", "").replace("\"", "")
-        col_list = col_mod.split(",")
-        origin_index = df.columns
-        new_index = pd.Index(col_list)
-        appended_index = new_index.append(origin_index)
-        dropped_index = appended_index.drop_duplicates(keep='first')
-        df = df.reindex(columns=dropped_index)
+    print(df.columns)
+
+#    if columns is not None and columns != "null" and columns != "":
+#        col_mod = columns.replace("[", "").replace("]", "").replace("'", "").replace("\"", "")
+#        col_list = col_mod.split(",")
+#        origin_index = df.columns
+#        new_index = pd.Index(col_list)
+#        appended_index = new_index.append(origin_index)
+#        dropped_index = appended_index.drop_duplicates(keep='first')
+#        df = df.reindex(columns=dropped_index)
 
     if cocd_columns is not None and cocd_columns != "null" and cocd_columns != "":
         columns_mod = cocd_columns.replace("[", "")
@@ -346,7 +361,9 @@ def hive_query(request):
 
     print("hive query time:", time.time()-start)
     uid = set_data_to_redis(df)
-    return uid, 200
+    print(df)
+    print("================================>>>>>>" + uid)
+    return HttpResponse(uid, 200)
 
 def mongodb_query(request):
     body_unicode = request.body.decode('utf-8')
@@ -511,7 +528,6 @@ def select_query(request):
         global connection_tibero
         global connection_hive
         start = time.time()
-
         query = ""
         name = ""
         t_user = ""
@@ -551,7 +567,8 @@ def select_query(request):
         # exclusion = request.args.get("exclusion", default=None)
         # t_user = t_user.upper()
 
-        logger.debug(query)
+        print("========================================000")
+        print(query)
         col_list = []
         print(t_user)
         # res = connection.execute(query)
@@ -560,12 +577,14 @@ def select_query(request):
         try:
             if t_user == "UPMS":
                 # connection = cx_Oracle.connect("HAKSA", "!#HAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
+                print("*********1")
                 query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_tibero, parse_dates=['Date'], chunksize=10000)])
+                print(query_result)
                 # query_result = pd.read_sql_query(query, connection)
                 # connection.close()
-            # elif t_user == "HIVE":
-            #     # query_result = pd.read_sql_query(query, gongt_connection)
-            #     query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_hive, parse_dates=['Date'], chunksize=10000)])
+            elif t_user == "HIVE":
+                query_result = pd.read_sql_query(query, connection_oracle)
+                query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_hive, parse_dates=['Date'], chunksize=10000)])
             # elif t_user == "GHAKSA":
             #     # ghaksa_connection = cx_Oracle.connect("GHAKSA", "!#GHAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
             #     # query_result = pd.read_sql_query(query, ghaksa_connection)
@@ -656,10 +675,11 @@ def select_query(request):
             return resp
         # query_result = pd.DataFrame(res.fetchall())
 
-        # print(query_result.dtypes)
+        print(query_result.dtypes)
         # print(query_result.head(50).to_string())
         print("=========================== 3")
         # 원래 컬럼 리스트 -> 들어온 순서대로 reindex 함
+        print(query_result.columns)
         query_result.columns = map(str.upper, query_result.columns)
         if columns is not None and columns != "null" and columns != "":
             col_mod = columns.replace("[", "").replace("]", "").replace("'", "").replace("\"", "")

@@ -49,8 +49,12 @@ import time
 # redis address ( test and deploy )
 # r = redis.Redis(host='203.247.194.215', port=61379)
 
+#로컬
+r_pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
 
-r_pool = redis.ConnectionPool(host='127.0.0.1', port=6379, db=0)
+#도커
+#r_pool = redis.ConnectionPool(host='172.17.0.6', port=6379, db=0)
+
 r = redis.Redis(connection_pool=r_pool)
 #r = redis.Redis(host='10.111.82.182', port=6379)
 
@@ -106,7 +110,7 @@ def hello_world():
 
 
 # free dataframe memory
-# def free_df(df: pd.DataFrame):
+# def free_df(df: pd.DataFrame):R
 #     del [[df]]
 #     gc.collect()
 #     df = pd.DataFrame()

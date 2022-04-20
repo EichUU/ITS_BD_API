@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/ITS_BD_API.iml" filepath="$PROJECT_DIR$/.idea/ITS_BD_API.iml" />
+      <module fileurl="file://$USER_HOME$/Desktop/python/.idea/python.iml" filepath="$USER_HOME$/Desktop/python/.idea/python.iml" />
     </modules>
   </component>
 </project>

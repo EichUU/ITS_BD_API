@@ -1,4 +1,5 @@
 import cx_Oracle
+import happybase
 import pyodbc
 import pymysql
 import mariadb
@@ -18,7 +19,7 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         cur = conn.cursor()
 
     elif dbtype == "oracle":
-        os.chdir(r'instantclient_19_11')
+        os.chdir(r'C:\mapsco\project\ITS_BD_API\dbcon\instantclient_19_13')
         os.putenv('NLS_LANG', 'AMERICAN_AMERICA.UTF8')
 
         db = cx_Oracle.connect(user=dbuser, password=dbpwd, dsn=dbhost)
@@ -29,7 +30,7 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         cur = pyodbc.connect('DSN=' + dsname + ';UID=' + dbuser + ';PWD=' + dbpwd)
         # cur.setdecoding(pyodbc.SQL_CHAR, encoding='utf-8')
         # cur.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-8')
-        # cur.setdecoding(pyodbc.SQL_WMETADATA, encoding='utf-8')
+        #cur.setdecoding(pyodbc.SQL_WMETADATA, encoding='utf-32le')
         if os.name != "nt":
             cur.setencoding(encoding='utf-8')
 

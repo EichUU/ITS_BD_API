@@ -9,8 +9,12 @@ from bson.json_util import dumps, loads
 
 from bson.objectid import ObjectId
 
-mongo_host = "192.168.0.100"
-mongo_port = 27017
+#로컬
+#mongo_host = "192.168.0.193"
+
+#도커
+mongo_host = "172.17.0.6"
+mongo_port = 20000
 
 
 # 몽고디비 collection 생성
@@ -180,8 +184,14 @@ def deleteChk(request):
         db = request.GET.get("db")
         col = request.GET.get("col")
 
-    host = "localhost"
-    port = 27017
+#로컬
+#    host = "localhost"
+#    port = 27017
+
+#도커
+    host = "172.17.0.6"
+    port = 20000 #샤딩
+
     mongo = MongoClient(host, int(port))
     database = mongo[db]
 
