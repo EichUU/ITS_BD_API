@@ -2498,77 +2498,98 @@ def merge_mds(request):
 # return # redis key
 # ======================================================================================================================
 def pivot(request):
+    print("=======pivot")
     try:
         body_unicode = request.body.decode('utf-8')
         if len(body_unicode) != 0:
             body = json.loads(body_unicode)
             key = body['key']
-            columns = body['columns']
+            row = body['row']
+            column = body['column']
+            value = body['value']
             method = body['method']
         else:
             key = request.GET.get("key")
-            columns = request.GET.get("columns")
+            row = request.GET.get("row")
+            column = request.GET.get("column")
+            value = request.GET.get("value")
             method = request.GET.get("method")
 
         #method = request.args.get("method", default="first")
 
-        method_list = ['size', 'count', 'mean', 'median', 'min', 'max', 'sum', 'prod',
-                       'std', 'quantile', 'first', 'end']
-
-        if columns is None or columns == "" or columns == "null":
-            resp = HttpResponse("columns need one or more parameter")
-            resp.headers['exception'] = "999006"
-            resp.status_code = 400
-            return resp
-        if method is None or method == "" or method == "null":
-            resp = HttpResponse("method need one or more parameter")
-            resp.headers['exception'] = "999011"
-            resp.status_code = 400
-            return resp
-        columns_mod = columns.replace("[", "")
-        columns_mod = columns_mod.replace("]", "")
-        columns_mod = columns_mod.replace("'", "")
-        columns_mod = columns_mod.replace("\"", "")
-        # columns_mod = columns_mod.replace(" ", "")
-        columns_list = columns_mod.split(",")
+        method_list = ['sum', 'count', 'mean', 'median', 'min', 'max', 'var',
+                       'std', 'quantile']
         df = get_data_from_redis(key)
-        if df is None:
-            resp = HttpResponse("exception occurs.")
-            resp.headers['Content-Type'] = "text/plain; charset=utf-8"
-            resp.headers['exception'] = "999003"
-            resp.status_code = 400
-            return resp
-        # data = r.get(key)
-        # if data is not None:
-        #     df = pd.DataFrame(json.loads(data))
-        columns_list_final = []
-        col_list = set(df.columns)
-        intersection_list = col_list.intersection(columns_list)
-        for col in columns_list:
-            if col in intersection_list:
-                if col not in columns_list_final:
-                    columns_list_final.append(col)
-        if len(columns_list_final) == 0:
-            resp = HttpResponse("Not correct columns")
-            resp.headers['exception'] = "999007"
-            resp.status_code = 400
-            return resp
-        if method in method_list:
-            df2 = pd.pivot_table(df, index=columns_list_final, aggfunc=method)
-            uuid1 = set_data_to_redis(df2)
+        pivot = pd.pivot_table(df,  # pivot 할 데이터프레임
+                       index=row,  # 행 위치에 들어갈 열
+                       columns=column,  # 열 위치에 들어갈 열
+                       values=value,  # 데이터로 사용할 열
+                       aggfunc=method  # 데이터 집계함수(sum, count, min, max, mean, median, std, var, quantile)
+                       )
 
-            #return str(uuid1), 200
-            return HttpResponse(str(uuid1), 200)
-        else:
-            resp = HttpResponse("method out of range")
-            resp.headers['exception'] = "999019"
-            resp.status_code = 400
-            return resp
+        uuid1 = set_data_to_redis(pivot)
+        # return str(uuid1), 200
+        return HttpResponse(str(uuid1), 200)
     except Exception as e:
+        print(e)
         resp = HttpResponse("exception occurs.")
         resp.headers['exception'] = str(e)
         resp.status_code = 400
         return resp
+    #     if columns is None or columns == "" or columns == "null":
+    #         resp = HttpResponse("columns need one or more parameter")
+    #         resp.headers['exception'] = "999006"
+    #         resp.status_code = 400
+    #         return resp
+    #     if method is None or method == "" or method == "null":
+    #         resp = HttpResponse("method need one or more parameter")
+    #         resp.headers['exception'] = "999011"
+    #         resp.status_code = 400
+    #         return resp
+    #     columns_mod = columns.replace("[", "")
+    #     columns_mod = columns_mod.replace("]", "")
+    #     columns_mod = columns_mod.replace("'", "")
+    #     columns_mod = columns_mod.replace("\"", "")
+    #     # columns_mod = columns_mod.replace(" ", "")
+    #     columns_list = columns_mod.split(",")
+    #     df = get_data_from_redis(key)
+    #     if df is None:
+    #         resp = HttpResponse("exception occurs.")
+    #         resp.headers['Content-Type'] = "text/plain; charset=utf-8"
+    #         resp.headers['exception'] = "999003"
+    #         resp.status_code = 400
+    #         return resp
+    #     # data = r.get(key)
+    #     # if data is not None:
+    #     #     df = pd.DataFrame(json.loads(data))
+    #     columns_list_final = []
+    #     col_list = set(df.columns)
+    #     intersection_list = col_list.intersection(columns_list)
+    #     for col in columns_list:
+    #         if col in intersection_list:
+    #             if col not in columns_list_final:
+    #                 columns_list_final.append(col)
+    #     if len(columns_list_final) == 0:
+    #         resp = HttpResponse("Not correct columns")
+    #         resp.headers['exception'] = "999007"
+    #         resp.status_code = 400
+    #         return resp
+    #     if method in method_list:
+    #         df2 = pd.pivot_table(df, index=columns_list_final, aggfunc=method)
+    #         uuid1 = set_data_to_redis(df2)
+    #
+    #         #return str(uuid1), 200
+    #         return HttpResponse(str(uuid1), 200)
+    #     else:
+    #         resp = HttpResponse("method out of range")
+    #         resp.headers['exception'] = "999019"
+    #         resp.status_code = 400
+    #         return resp
+    # except Exception as e:
+    #     resp = HttpResponse("exception occurs.")
+    #     resp.headers['exception'] = str(e)
+    #     resp.status_code = 400
+    #     return resp
 
 
 # ======================================================================================================================
