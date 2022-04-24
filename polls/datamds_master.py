@@ -946,10 +946,14 @@ def get_data(request):
             columns_mod = columns_mod.replace("\"", "")
             columns_mod = columns_mod.replace(" ", "")
             columns_list = columns_mod.split(",")
+        print("================================================================/get1")
         df = get_data_from_redis(key)
+
         #print("99999" + df.head(10).to_string())
         # print(df.to_string())
         # print(df.dtypes)
+
+        print("================================================================/get2")
         if df is None:
             print("df is None==>exception occurs.")
             resp = HttpResponse("exception occurs.")
@@ -957,7 +961,7 @@ def get_data(request):
             resp.headers['exception'] = "999003"
             resp.status_code = 400
             return resp
-        print("get_data==============1" + df.columns)
+        # print("get_data==============1" + df.columns)
         col_list = set(df.columns)
         for col in col_list:
             col_name = col.split(".")[-1]
@@ -1010,6 +1014,7 @@ def get_data(request):
         #     return resp
     except Exception as e:
         print("get_data==============7")
+        print(e)
         resp = HttpResponse("exception occurs.")
         resp.headers['exception'] = str(e)
         resp.status_code = 400

@@ -749,7 +749,7 @@ def histogram(df, statX):
 
     for i in df.columns:
         try:
-            df[i] = train_x[i].apply(pd.to_numeric)
+            df[i] = df[i].apply(pd.to_numeric)
         except Exception as e:
             print(e)
         fig.add_trace(go.Histogram(x=df[i]))
