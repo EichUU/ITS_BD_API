@@ -2538,8 +2538,16 @@ def pivot(request):
             #pivot에서 인덱스를 리셋하여 일반 데이터프레임으로 변환
             pivot = pivot.reset_index()
             pivot = pd.DataFrame(pivot.to_records())
-            # for i in pivot.columns:
-            #     print(i.split(",").replace("'", ''))
+            pivot_columns = []
+            for i in range(len(pivot.columns)):
+                column_nm = ""
+                for j in pivot.columns[i].split(",")[::-1]:
+                    if j.replace("'", '').replace("(", '').replace(")", '').replace(" ", '') != '':
+                        nm = j.replace("'", '').replace("(", '').replace(")", '').replace(" ", '')
+                        column_nm += nm.split(".")[-1] + "_"
+                pivot_columns.append(column_nm[:-1])
+            pivot.columns = pivot_columns
+            pivot.set_index = pivot_columns[0]
 
         except Exception as e:
             print("exception")

@@ -116,7 +116,7 @@ def analyze(request):
         dfStat = df[arrayStat]
         print(dfStat)
 
-    elif analy in analyCLs:
+    elif analy in analyCls:
         try:
             df = df[indep.split(",") + dep.split(",")]
         except Exception as e:
@@ -774,19 +774,29 @@ def bar(df, statX, statY, statColor):
     print("===========bar")
     # df = df.loc[:, ~df.T.duplicated()]
 
-    for i in df[statX.split(",") + statY.split(",")].columns:
+    # for i in df[statX.split(",") + statY.split(",")].columns:
+    #     df[i] = df[i].apply(pd.to_numeric)
+
+    for i in df[statY.split(",")].columns:
         df[i] = df[i].apply(pd.to_numeric)
 
-    if len(statY.split(",")) >= 2:
+    if len(statY.split(",")) >= 2 and len(statX.split(",")) == 1:
         fig = go.Figure()
-        for i in range(len(statY)):
+        for i in range(len(statY.split(","))):
             fig.add_trace(go.Bar(
-                df,
-                x=statX[i],
-                y=statY[i],
-                name=statY[i]
+                x=df[statX],
+                y=df[statY.split(",")[i]],
+                name=statY.split(",")[i]
             ))
-
+        fig.update_layout(barmode='group')
+    elif len(statY.split(",")) >= 2 and len(statX.split(",")) >= 2:
+        fig = go.Figure()
+        for i in range(len(statY.split(","))):
+            fig.add_trace(go.Bar(
+                x=df[statX.split(",")[i]],
+                y=df[statY.split(",")[i]],
+                name=statY.split(",")[i]
+            ))
         fig.update_layout(barmode='group')
     else:
         try:
