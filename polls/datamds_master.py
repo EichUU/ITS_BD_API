@@ -70,7 +70,8 @@ from bson.json_util import dumps, loads
 from bson.objectid import ObjectId
 
 # HIVE CONNECTION INFO
-host = "203.247.194.212"
+# host = "203.247.194.212"
+host = "192.168.0.193"
 port = 10000
 
 # MongDB CONNECTION INFO
