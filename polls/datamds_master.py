@@ -955,6 +955,7 @@ def get_data(request):
         # print(df.dtypes)
 
         print("================================================================/get2")
+
         if df is None:
             print("df is None==>exception occurs.")
             resp = HttpResponse("exception occurs.")
@@ -962,6 +963,7 @@ def get_data(request):
             resp.headers['exception'] = "999003"
             resp.status_code = 400
             return resp
+
         # print("get_data==============1" + df.columns)
         col_list = set(df.columns)
         for col in col_list:

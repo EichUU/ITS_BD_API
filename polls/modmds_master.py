@@ -2522,16 +2522,25 @@ def pivot(request):
                        'std', 'quantile']
         df = get_data_from_redis(key)
 
+        row = row.split(",")
+        column = column.split(",")
+        value = value.split(",")
+        method = method.split(",")
+
         try:
-            pivot = pd.pivot_table(df,  # pivot 할 데이터프레임
-                           index=row,  # 행 위치에 들어갈 열
-                           columns=column,  # 열 위치에 들어갈 열
-                           values=value,  # 데이터로 사용할 열
+            pivot = pd.pivot_table(df,     # pivot 할 데이터프레임
+                           index=row,      # 행 위치에 들어갈 열
+                           columns=column, # 열 위치에 들어갈 열
+                           values=value,   # 데이터로 사용할 열
                            aggfunc=method  # 데이터 집계함수(sum, count, min, max, mean, median, std, var, quantile)
                            )
 
             #pivot에서 인덱스를 리셋하여 일반 데이터프레임으로 변환
             pivot = pivot.reset_index()
+            pivot = pd.DataFrame(pivot.to_records())
+            # for i in pivot.columns:
+            #     print(i.split(",").replace("'", ''))
+
         except Exception as e:
             print("exception")
             print(row)
