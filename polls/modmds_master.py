@@ -2526,7 +2526,14 @@ def pivot(request):
         column = column.split(",")
         value = value.split(",")
         method = method.split(",")
+        df = df.reset_index()
+        df = df[row + column + value]
+        tmp_method = {}
+        if len(method) > 1:
+            for i in range(len(method)):
+                tmp_method.update({value[i] : method[i]})
 
+            method = tmp_method
         try:
             pivot = pd.pivot_table(df,     # pivot 할 데이터프레임
                            index=row,      # 행 위치에 들어갈 열
@@ -2534,18 +2541,25 @@ def pivot(request):
                            values=value,   # 데이터로 사용할 열
                            aggfunc=method  # 데이터 집계함수(sum, count, min, max, mean, median, std, var, quantile)
                            )
-
+            print(pivot)
             #pivot에서 인덱스를 리셋하여 일반 데이터프레임으로 변환
             pivot = pivot.reset_index()
             pivot = pd.DataFrame(pivot.to_records())
             pivot_columns = []
             for i in range(len(pivot.columns)):
                 column_nm = ""
+                table_nm = ""
                 for j in pivot.columns[i].split(",")[::-1]:
                     if j.replace("'", '').replace("(", '').replace(")", '').replace(" ", '') != '':
                         nm = j.replace("'", '').replace("(", '').replace(")", '').replace(" ", '')
+
+                        if len(nm.split(".")) > 1:
+                            column_nm = nm.split(".")[0] + "."
+
                         column_nm += nm.split(".")[-1] + "_"
                 pivot_columns.append(column_nm[:-1])
+
+            print(pivot_columns)
             pivot.columns = pivot_columns
             pivot.set_index = pivot_columns[0]
 
