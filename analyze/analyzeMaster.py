@@ -112,9 +112,10 @@ def analyze(request):
 
         #리스트에서 곻백인 원소 제거
         arrayStat = [v for v in arrayStat if v]
-        print(arrayStat)
+
+        #데이터프레임 생성
         dfStat = df[arrayStat]
-        print(dfStat)
+
 
     elif analy in analyCls:
         try:
@@ -123,19 +124,24 @@ def analyze(request):
             print(e)
             df = df[indep.split(",")]
 
+        #데이터프레임 공백을 Nan으로 변환
         df = df.replace(r'', np.nan, regex=True)
-        df = df.dropna()
-        indep = indep.split(",")
-        indep = df[indep]
 
+        #데이터프레임에서 Nan이 포함되어 있는 행 삭제
+        df = df.dropna()
+
+        indep = indep.split(",") #독립변수 파라미터를 리스트 형태로 변환
+        indep = df[indep]        #데이터프레임에서 독립변수만 해당하는 값만 저장
+
+        #종속변수는 없을 수도 있어서 try ~ catch 문 사용
         try:
             dep = dep.split(",")
             dep = df[dep]
-            print("=============")
-            print(dep)
         except Exception as e:
             print(e)
 
+
+        # 데이터 중 날짜가 있으면 날짜형태로 변환
         try:
             for i in dep.columns:
                 try:
@@ -169,7 +175,6 @@ def analyze(request):
 
     try:
         if analy == "BDH001":
-            print(1)
             # 선형회귀
             res = linearRegression(indep, dep)
 
@@ -202,138 +207,33 @@ def analyze(request):
             res = naive_bayes(indep, dep)
 
         elif analy == "BDH009":
-            #           plt.figure(figsize=(15, 15))
-            try:
-                xlen = len(indep[indep.columns[0]].values.categories)
-                ylen = len(indep[indep.columns[1]].values.categories)
-                if xlen > ylen:
-                    plt.figure(figsize=(xlen / 4, xlen / 4))
-                else:
-                    plt.figure(figsize=(ylen / 4, ylen / 4))
-            except:
-                plt.figure(figsize=(10, 10))
-            plt.xticks(rotation=90)
-            try:
-                plt.rc('font', family="NanumSqure", size=5)
-            except Exception as e:
-                print(e)
-
-            # plt.grid()
-
-            try:
-                y = pd.to_numeric(indep[indep.columns[1]])
-                plt.ylim(y.min(), y.max())
-            except:
-                y = indep[indep.columns[1]]
-
-            try:
-                x = pd.to_numeric(indep[indep.columns[0]])
-                plt.xlim(x.min(), x.max())
-            except:
-                x = indep[indep.columns[0]]
-
-            z = pd.to_numeric(dep[dep.columns[0]])
-            plt.grid()
-            sns.scatterplot(x=x, y=y, size=z, sizes=(0, 400), legend=False)
-            plt.grid()
-            sns.set(font="NanumSquare", rc={"axes.unicode_minus": False, "font.size": 5})
-
-            fname = str(uuid.uuid4()) + ".jpg"
-            print(fname)
-            script_dir = os.path.dirname(__file__)
-            results_dir = os.path.join(script_dir, 'Results/bubble/')
-            if not os.path.isdir(results_dir):
-                os.makedirs(results_dir)
-
-            plt.savefig(results_dir + fname, bbox_inches='tight')
-
-            with open(results_dir + fname, 'rb') as img:
-
-                base64_string = base64.b64encode(img.read())
-            base64_string = urllib.parse.quote(base64_string)
-            res = {'fname': base64_string}
+            #버블차트
+            res = bubble(indep,dep)
 
         elif analy == "BDH010":
-            try:
-                print(123)
-                le = LabelEncoder()
-                print(indep)
-                for i in indep.columns:
-                    indep[i] = le.fit_transform(indep[i])
-                corr_column_names = indep.columns
-                #                nominal.associations(indep)
-                print(indep)
-                plt.figure(figsize=(len(indep.columns) * 4, len(indep.columns) * 4))
-                heatmap = sns.heatmap(indep.apply(pd.to_numeric).corr(method='kendall'), cbar=True, annot=True,
-                                      fmt='.3f', square='True', yticklabels=corr_column_names,
-                                      xticklabels=corr_column_names)
-            #                heatmap = sns.heatmap(pd.get_dummies(indep).corr(method='kendall'), cbar = True, annot = True, fmt ='.3f', square = 'True', yticklabels=corr_column_names, xticklabels=corr_column_names)
-            except Exception as e:
-                print(e)
-                print(indep)
-
-            fname = str(uuid.uuid4()) + ".jpg"
-
-            script_dir = os.path.dirname(__file__)
-            results_dir = os.path.join(script_dir, 'Results/heatmap/')
-            if not os.path.isdir(results_dir):
-                os.makedirs(results_dir)
-
-            plt.savefig(results_dir + fname, bbox_inches='tight')
-
-            with open(results_dir + fname, 'rb') as img:
-
-                base64_string = base64.b64encode(img.read())
-            base64_string = urllib.parse.quote(base64_string)
-            print(base64_string)
-            res = {'fname': base64_string}
+            #히트맵
+            res = heatmap(indep)
 
         elif analy == "BDH011":
-            try:
-                y = pd.to_numeric(dep[dep.columns[0]])
-                plt.ylim(y.min(), y.max())
-            except:
-                y = dep[dep.columns[0]]
+            #박스플롯
+            res = boxplot(indep, dep)
 
-            try:
-                x = pd.to_numeric(indep[indep.columns[0]])
-                plt.xlim(x.min(), x.max())
-            except:
-                x = indep[indep.columns[0]]
-
-            fig, ax = plt.subplots()
-            print(1)
-            try:
-                sns.boxplot(ax=ax, x=x, y=y)
-            except Exception as e:
-                print(e)
-            print(2)
-
-            fname = str(uuid.uuid4()) + ".jpg"
-
-            script_dir = os.path.dirname(__file__)
-            results_dir = os.path.join(script_dir, 'Results/box/')
-
-            if not os.path.isdir(results_dir):
-                os.makedirs(results_dir)
-
-            plt.savefig(results_dir + fname, bbox_inches='tight')
-
-            with open(results_dir + fname, 'rb') as img:
-                base64_string = base64.b64encode(img.read())
-
-            base64_string = urllib.parse.quote(base64_string)
-            print(base64_string)
-            res = {'fname': base64_string}
         elif analy == "BDH012":
+            #히스토그램
             res = histogram(dfStat, statX)
+
         elif analy == "BDH013":
+            #막대
             res = bar(dfStat, statX, statY, statColor)
+
         elif analy == "BDH014":
+            #라인
             res = line(dfStat, statX, statY, statColor)
+
         elif analy == "BDH015":
+            #분산
             res = scatter(dfStat, statX, statY, statZ, statColor, statSize, statSymbol)
-        #        print(res)
+
         resp = HttpResponse(str(res))
         resp.status_code = 200
     except Exception as e:
@@ -342,7 +242,6 @@ def analyze(request):
         resp.status_code = 404
 
     return resp
-
 
 def linearRegression(train_x, train_y):
     sm.add_constant(train_x)
@@ -426,23 +325,21 @@ def linearRegression(train_x, train_y):
     base64_string = urllib.parse.quote(base64_string)
     return {'summary': res1 + res0 + res2, 'fname': base64_string}
 
-
 def logisticRegression(train_x, train_y):
     scaler = StandardScaler()
-    print(1)
-    train_x = scaler.fit_transform(train_y.values.reshape(-1, 1))
+
+    train_y = scaler.fit_transform(train_y.values.reshape(-1, 1))
     model = LogisticRegression()
     model.fit(train_x, train_y)
-    print(2)
+
     try:
         plt.figure(1, figsize=(4, 3))
         plt.clf()
     except Exception as e:
         print("================")
         print(e)
-    print(3)
+
     plt.scatter(train_x.ravel(), train_y.values.ravel(), color="black", zorder=20)
-    print(4)
     X_test = np.linspace(-5, 10, 300)
 
     try:
@@ -471,7 +368,6 @@ def logisticRegression(train_x, train_y):
 
     base64_string = urllib.parse.quote(base64_string)
     return {"coef": str(model.coef_), "fname": base64_string}
-
 
 def DecisionTree(train_x, train_y, depth):
     train_x = train_x.astype(float)
@@ -506,17 +402,15 @@ def DecisionTree(train_x, train_y, depth):
     base64_string = urllib.parse.quote(base64_string)
     return {'fname': base64_string}
 
-
 def KNN(train_x, train_y, test_x, cluster):
-    knn = KNeighborsClassifier(n_neighbors=3)
-    print(train_x)
-    print(train_y)
+    knn = KNeighborsClassifier(n_neighbors=cluster)
+
     knn.fit(train_x, train_y.values.ravel())
-    print(1)
+
     test_x = pd.DataFrame([test_x], columns=train_x.columns)
-    print(2)
+
     test_y = knn.predict(test_x)
-    print(3)
+
     # fig = plt.figure(1)
     #
     # plt.scatter(train_x.iloc[ :, 0], train_x.iloc[ :, 1], c=train_y.values)
@@ -559,7 +453,6 @@ def KNN(train_x, train_y, test_x, cluster):
     base64_string = urllib.parse.quote(base64_string)
     return {'fname': base64_string}
 
-
 def svm(train_x, train_y, test_x, kernel):
     if kernel == "BDI001":
         kernel = "linear"
@@ -576,9 +469,9 @@ def svm(train_x, train_y, test_x, kernel):
 
     if kernel == "linear":
         y_predict = clf.predict(train_x)  # y_predict 값에 x_test를 통해 예측한 값이 할당됩니다.
-        print(1)
+
         plt.plot(train_x[train_x.columns[0]], train_x[train_x.columns[1]])
-        print(2)
+
         try:
             plot_svc_decision_boundary(clf, 0, 6)
         except Exception as e:
@@ -626,7 +519,6 @@ def svm(train_x, train_y, test_x, kernel):
 
     return {'classfication': classification_report(train_y, y_predict), 'fname': base64_string}
 
-
 def naive_bayes(train_x, train_y, test_x, test_y):
     nb = GaussianNB()
     nb.fit(train_x, train_y)
@@ -634,7 +526,6 @@ def naive_bayes(train_x, train_y, test_x, test_y):
     predict = nb.predict(test_x)
 
     print("Number of mislabeled points out of a total %d proints : %d" % (test_x.shape[0], (test_y != predict).sum()))
-
 
 def randomForest(train_x, train_y, estimators, depth):
     clf = RandomForestClassifier(n_estimators=int(estimators), max_depth=int(depth), random_state=0)
@@ -670,19 +561,18 @@ def randomForest(train_x, train_y, estimators, depth):
 
     return ({'fname': fpath})
 
-
 def kMeans(train_x, train_y):
-    print(train_x)
+
     #    train_x["TU_0007_0000000002.SCHL_THEME"] = train_x["TU_0007_0000000002.SCHL_THEME"].str.extract('(\d+)')
 
     kmeans = KMeans(n_clusters=4)
     kmeans.fit(train_x)
-    print(3)
+
     # 결과 확인
     result_by_sklearn = train_x.copy()
-    print(4)
+
     result_by_sklearn["cluster"] = kmeans.labels_
-    print(kmeans.labels_)
+
     scatter = sns.scatterplot(train_x.columns[0], train_x.columns[1], hue=train_y[train_y.columns[0]],
                               data=result_by_sklearn, palette="Set2")
     plt.legend(loc='best')
@@ -703,7 +593,6 @@ def kMeans(train_x, train_y):
 
     return {"fname": base64_string}
 
-
 def min_max_normalize(lst):
     normalized = []
 
@@ -713,25 +602,23 @@ def min_max_normalize(lst):
 
     return normalized
 
-
 def plot_svc_decision_boundary(svm_clf, xmin, xmax):
     w = svm_clf.coef_[0]
     b = svm_clf.intercept_[0]
-    print(3)
+
     x0 = np.linespace(xmin, xmax, 200)
-    print(4)
+
     decision_boundary = -w[0] / w[1] * x0 - b / w[1]
 
     margin = 1 / w[1]
     gutter_up = decision_boundary + margin
     gutter_down = decision_boundary - margin
-    print(5)
+
     svs = svm_clf.support_vectors_
     plt.scatter(svs[:, 0], svs[:, 1], s=180, facecolors='#FFAAAA')
     plt.plot(x0, decision_boundary, 'k-', linewidth=2)
     plt.plot(x0, gutter_up, 'k--', linewidth=2)
     plt.plot(x0, gutter_down, 'k--', linewieth=2)
-
 
 def plot_predictions(clf, axes):
     x0s = np.linspace(axes[0], axes[1], 3000)
@@ -742,7 +629,6 @@ def plot_predictions(clf, axes):
     y_decision = clf.decision_function(X).reshape(x0.shape)
     plt.contour(x0, x1, y_pred, cmap=plt.cm.brg, alpah=0.2)
     plt.contour(x0, x1, y_decision, cmap=plt.cm.brg, alpha=0.1)
-
 
 def histogram(df, statX):
     fig = go.Figure()
@@ -768,7 +654,6 @@ def histogram(df, statX):
     fig.write_html(results_dir + fname)
 
     return {"fname": fname}
-
 
 def bar(df, statX, statY, statColor):
     print("===========bar")
@@ -850,7 +735,6 @@ def bar(df, statX, statY, statColor):
 
     return {"fname": fname}
 
-
 def line(df, statX, statY, statColor):
     fig = go.Figure()
     try:
@@ -871,7 +755,6 @@ def line(df, statX, statY, statColor):
     fig.write_html(results_dir + fname)
 
     return {"fname": fname}
-
 
 def scatter(df, statX, statY, statZ, statColor, statSize, statSymbol):
     fig = go.Figure()
@@ -915,4 +798,126 @@ def scatter(df, statX, statY, statZ, statColor, statSize, statSymbol):
 
     return {"fname": fname}
 
+def bubble(indep,dep):
+    try:
+        xlen = len(indep[indep.columns[0]].values.categories)
+        ylen = len(indep[indep.columns[1]].values.categories)
+        if xlen > ylen:
+            plt.figure(figsize=(xlen / 4, xlen / 4))
+        else:
+            plt.figure(figsize=(ylen / 4, ylen / 4))
+    except:
+        plt.figure(figsize=(10, 10))
+    plt.xticks(rotation=90)
+    try:
+        plt.rc('font', family="NanumSqure", size=5)
+    except Exception as e:
+        print(e)
 
+    # plt.grid()
+
+    try:
+        y = pd.to_numeric(indep[indep.columns[1]])
+        plt.ylim(y.min(), y.max())
+    except:
+        y = indep[indep.columns[1]]
+
+    try:
+        x = pd.to_numeric(indep[indep.columns[0]])
+        plt.xlim(x.min(), x.max())
+    except:
+        x = indep[indep.columns[0]]
+
+    z = pd.to_numeric(dep[dep.columns[0]])
+    plt.grid()
+    sns.scatterplot(x=x, y=y, size=z, sizes=(0, 400), legend=False)
+    plt.grid()
+    sns.set(font="NanumSquare", rc={"axes.unicode_minus": False, "font.size": 5})
+
+    fname = str(uuid.uuid4()) + ".jpg"
+    print(fname)
+    script_dir = os.path.dirname(__file__)
+    results_dir = os.path.join(script_dir, 'Results/bubble/')
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+
+    plt.savefig(results_dir + fname, bbox_inches='tight')
+
+    with open(results_dir + fname, 'rb') as img:
+
+        base64_string = base64.b64encode(img.read())
+    base64_string = urllib.parse.quote(base64_string)
+
+    return {'fname': base64_string}
+
+def heatmap(indep):
+    try:
+        le = LabelEncoder()
+        print(indep)
+        for i in indep.columns:
+            indep[i] = le.fit_transform(indep[i])
+        corr_column_names = indep.columns
+        #                nominal.associations(indep)
+        print(indep)
+        plt.figure(figsize=(len(indep.columns) * 4, len(indep.columns) * 4))
+        heatmap = sns.heatmap(indep.apply(pd.to_numeric).corr(method='kendall'), cbar=True, annot=True,
+                              fmt='.3f', square='True', yticklabels=corr_column_names,
+                              xticklabels=corr_column_names)
+    #                heatmap = sns.heatmap(pd.get_dummies(indep).corr(method='kendall'), cbar = True, annot = True, fmt ='.3f', square = 'True', yticklabels=corr_column_names, xticklabels=corr_column_names)
+    except Exception as e:
+        print(e)
+        print(indep)
+
+    fname = str(uuid.uuid4()) + ".jpg"
+
+    script_dir = os.path.dirname(__file__)
+    results_dir = os.path.join(script_dir, 'Results/heatmap/')
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+
+    plt.savefig(results_dir + fname, bbox_inches='tight')
+
+    with open(results_dir + fname, 'rb') as img:
+
+        base64_string = base64.b64encode(img.read())
+    base64_string = urllib.parse.quote(base64_string)
+    print(base64_string)
+    return {'fname': base64_string}
+
+def boxplot(indep, dep):
+    try:
+        y = pd.to_numeric(dep[dep.columns[0]])
+        plt.ylim(y.min(), y.max())
+    except:
+        y = dep[dep.columns[0]]
+
+    try:
+        x = pd.to_numeric(indep[indep.columns[0]])
+        plt.xlim(x.min(), x.max())
+    except:
+        x = indep[indep.columns[0]]
+
+    fig, ax = plt.subplots()
+    print(1)
+    try:
+        sns.boxplot(ax=ax, x=x, y=y)
+    except Exception as e:
+        print(e)
+    print(2)
+
+    fname = str(uuid.uuid4()) + ".jpg"
+
+    script_dir = os.path.dirname(__file__)
+    results_dir = os.path.join(script_dir, 'Results/box/')
+
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+
+    plt.savefig(results_dir + fname, bbox_inches='tight')
+
+    with open(results_dir + fname, 'rb') as img:
+        base64_string = base64.b64encode(img.read())
+
+    base64_string = urllib.parse.quote(base64_string)
+    print(base64_string)
+    return {'fname': base64_string}

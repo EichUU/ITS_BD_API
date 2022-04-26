@@ -118,3 +118,42 @@ def makeRowKey(df, arrPk):
         df['ROWKEY'] += df[arrPk[i]]
 
     return df
+
+# conn = cx_Oracle.connect("THAKSA_NEW", "Thaksa32!4new", "192.168.102.61:1527/ORA11g")
+# conn = conn.cursor()
+#
+# cf = {"ROWKEY":"cf1", "YY":"cf1", "SHTM":"cf1", "SCHL_KIND_GB":"cf1", "SCHL_KIND_NM":"cf1", "MJ_CD":"cf1", "MJ_NM":"cf1", "PER_SCHL_SUM_AMT":"cf1", "YYSHTM":"cf1"}
+#
+# query = """SELECT *  FROM VW_SCHL_KIND_MJ_PER"""
+#
+# #query = """SELECT * FROM VW_SCHL_ANALYZE_KIND_SUM"""
+# #query = """SELECT * FROM VW_STD_GRAD_ANALYZE"""
+# #query = """SELECT * FROM VW_GRAD_ANALYZE"""
+# #
+# cur = conn.execute(query)
+# print(cur)
+# result = pd.DataFrame(cur)
+# tableName = "VW_SCHL_KIND_MJ_PER"
+#
+# columns = []
+# columnFamily = []
+# #
+# for i in cf:
+#    columns.append(i)
+#    columnFamily.append(cf[i])
+# #
+# result.columns = columns
+# ##
+# res = hbaseInsert(tableName, result, columnFamily)
+# ##
+# #if res.get("SUCCESS_YN") == "Y":
+# #    resp = HttpResponse({'SUCCESS_YN': 'Y'})
+# ##    resp.headers['Content-Type'] = "text/plain; charset=utf-8"
+# ##    resp.status_code = 200
+# ##    return resp
+# ##else:
+# ##    resp = HttpResponse("exception occurs.")
+# ##    resp.headers['Content-Type'] = "text/plain; charset=utf-8"
+# ##    resp.status_code = 400
+# ##    return resp
+# print(res)

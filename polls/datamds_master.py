@@ -584,7 +584,7 @@ def select_query(request):
                 # query_result = pd.read_sql_query(query, connection)
                 # connection.close()
             elif t_user == "HIVE":
-                query_result = pd.read_sql_query(query, connection_oracle)
+                query_result = pd.read_sql_query(query, connection_hive)
                 query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_hive, parse_dates=['Date'], chunksize=10000)])
             # elif t_user == "GHAKSA":
             #     # ghaksa_connection = cx_Oracle.connect("GHAKSA", "!#GHAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
