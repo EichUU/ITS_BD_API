@@ -2537,7 +2537,7 @@ def pivot(request):
         try:
             pivot = pd.pivot_table(df,     # pivot 할 데이터프레임
                            index=row,      # 행 위치에 들어갈 열
-                           columns=column, # 열 위치에 들어갈 열
+                           columns=column, # 열 위치에 들어갈 열NADA10
                            values=value,   # 데이터로 사용할 열
                            aggfunc=method  # 데이터 집계함수(sum, count, min, max, mean, median, std, var, quantile)
                            )
@@ -2545,6 +2545,7 @@ def pivot(request):
             #pivot에서 인덱스를 리셋하여 일반 데이터프레임으로 변환
             pivot = pivot.reset_index()
             pivot = pd.DataFrame(pivot.to_records())
+            print(pivot.columns)
             pivot_columns = []
             for i in range(len(pivot.columns)):
                 column_nm = ""
@@ -2554,10 +2555,11 @@ def pivot(request):
                         nm = j.replace("'", '').replace("(", '').replace(")", '').replace(" ", '')
 
                         if len(nm.split(".")) > 1:
-                            column_nm = nm.split(".")[0] + "."
+                            table_nm = nm.split(".")[0] + "."
 
                         column_nm += nm.split(".")[-1] + "_"
-                pivot_columns.append(column_nm[:-1])
+                print(column_nm[:-1])
+                pivot_columns.append(table_nm + column_nm[:-1])
 
             print(pivot_columns)
             pivot.columns = pivot_columns

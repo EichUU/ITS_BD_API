@@ -31,7 +31,7 @@ def get_table(request):
 #            cur = get_conn("hive", "", "", "", "172.17.0.2", 10000)
             cur = get_conn("mariadb", "hive", "root", "mapsco1338", "172.17.0.2", "3306")
             print(cur)
-            cur.execute("""SELECT T1.TBL_NAME AS TABLE_NAME, '' AS TABLESPACE_NAME, T2.PARAM_VALUE AS COMMENTS FROM TBLS T1 LEFT OUTER JOIN TABLE_PARAMS T2 ON T1.TBL_ID = T2.TBL_ID AND T2.PARAM_KEY = 'COMMENT'""")
+            cur.execute("""SELECT T1.TBL_NAME AS TABLE_NAME, 'BIG_DATA' AS TABLESPACE_NAME, T2.PARAM_VALUE AS COMMENTS FROM TBLS T1 LEFT OUTER JOIN TABLE_PARAMS T2 ON T1.TBL_ID = T2.TBL_ID AND T2.PARAM_KEY = 'COMMENT'""")
         except Exception as e:
             print(e)
 
