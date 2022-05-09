@@ -164,7 +164,7 @@ def get_columns(request):
 
 # ======================================================================================================================
 # param # key : redis 에서 가져올 데이터의 key
-# param # columns : 데이터에서 선택할 컬럼 리스트 ([data1, data2, data3 ... ] 형식)
+# param # columns : 데이터에서 선택할 컬럼 리스트 (ㅡㄷ[data1, data2, data3 ... ] 형식)
 # return # redis key
 # ======================================================================================================================
 def select_columns(request):
@@ -1827,11 +1827,11 @@ def get_data_groupby(request):
             resp.headers['exception'] = "999006"
             resp.status_code = 400
             return resp
-        if group is None or group == "" or group == "null":
-            resp = HttpResponse("ndecimal need one or more parameter")
-            resp.headers['exception'] = "999012"
-            resp.status_code = 400
-            return resp
+        # if group is None or group == "" or group == "null":
+        #     resp = HttpResponse("ndecimal need one or more parameter")
+        #     resp.headers['exception'] = "999012"
+        #     resp.status_code = 400
+        #     return resp
         if method is None or method == "" or method == "null":
             resp = HttpResponse("method need one or more parameter")
             resp.headers['exception'] = "999010"
@@ -1911,11 +1911,34 @@ def get_data_groupby(request):
         # res_df = result_df.agg(method_list)
         # print(result_df.agg(['size', 'mean', 'std', 'min', 'max', 'count']))
         print("=========================group_list")
-        print(group_list)
+        print(group_list )
         print("=========================f")
         print(f)
-        result_df = df.groupby(group_list)
-        res_df = result_df.agg(f)
+        if len(group_list) > 0:
+            result_df = df.groupby(group_list)
+            res_df = result_df.agg(f)
+        else:
+            global dic
+            dic = {}
+            for i, column in enumerate(columns_list):
+                res = pd.DataFrame()
+                if method_list[i] == "sum":
+                    res = df[column].sum()
+                elif method_list[i] == "count":
+                    res = df[column].count()
+                elif method_list[i] == "min":
+                    res = df[column[i]].min()
+                elif method_list[i] == "max":
+                    res = df[column[i]].max()
+                elif method_list[i] == "avg":
+                    res = df[column[i]].mean()
+                elif method_list[i] == "stddev_pop":
+                    res = df[column[i]].std()
+
+                dic = {column + "_" + method_list[i] : res}
+
+            res_df = pd.DataFrame(dic, index = [0])
+            res_df.style.hide_index()
         print("=========================res_df")
         print(res_df)
         res_df.columns = ['_'.join(x) if isinstance(x, tuple) else x for x in res_df.columns.ravel()]
@@ -2457,6 +2480,8 @@ def merge_mds(request):
             column2_mod = column2.replace("[", "").replace("]", "").replace("'", "").replace("\"", "")
             column2_list = column2_mod.split(",")
 
+        # column1_list = "".split(",")
+        # column2_list = "TU_0001_0000000004.RCNT_COUNT".split(",")
         method_array = ['inner', 'outer', 'left', 'right']
         if method in method_array:
             df1 = get_data_from_redis(key1)
@@ -2474,10 +2499,44 @@ def merge_mds(request):
                 resp.status_code = 400
                 return resp
 
-            merged = pd.merge(df1, df2, how=method, left_on=column1_list, right_on=column2_list)
+            if column1_list[0] == "" and column2_list[0] != "":
+                merged = df1
+                for i in df2.columns:
+                    try:
+                        # row 가 1개일때만 가능하도록
+                        if len(df2[i]) >= 2:
+                            raise
+                        merged.loc[:, i] = df2[i][0]
+                    except Exception as e:
+                        resp = HttpResponse("exception occurs.")
+                        resp.headers['Content-Type'] = "text/plain; charset=utf-8"
+                        resp.headers['exception'] = "999003"
+                        resp.status_code = 400
+                        return resp
+
+
+            elif column2_list[0] == "" and column1_list[0] != "":
+                merged = df2
+                for i in df1.columns:
+                    try:
+                        # row 가 1개일때만 가능하도록
+                        if len(df1[i]) >= 2:
+                            raise
+                        merged.loc[:, i] = df1[i][0]
+                    except Exception as e:
+                        resp = HttpResponse("exception occurs.")
+                        resp.headers['Content-Type'] = "text/plain; charset=utf-8"
+                        resp.headers['exception'] = "999003"
+                        resp.status_code = 400
+                        return resp
+
+            else:
+                merged = pd.merge(df1, df2, how=method, left_on=column1_list, right_on=column2_list)
+
             uuid1 = set_data_to_redis(merged)
             #return str(uuid1), 200
             return HttpResponse(str(uuid1), 200)
+
         else:
             resp = HttpResponse("method out of range")
             resp.headers['exception'] = "999018"
@@ -2537,7 +2596,7 @@ def pivot(request):
         try:
             pivot = pd.pivot_table(df,     # pivot 할 데이터프레임
                            index=row,      # 행 위치에 들어갈 열
-                           columns=column, # 열 위치에 들어갈 열NADA10
+                           columns=column, # 열 위치에 들어갈 열
                            values=value,   # 데이터로 사용할 열
                            aggfunc=method  # 데이터 집계함수(sum, count, min, max, mean, median, std, var, quantile)
                            )

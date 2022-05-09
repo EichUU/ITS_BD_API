@@ -34,6 +34,10 @@ from polls.datamds_master import get_data_from_redis
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from wordcloud import WordCloud, STOPWORDS
+from konlpy.tag import Twitter
+from collections import Counter
+
 mpl.rcParams['axes.unicode_minus'] = False
 plt.rcParams["font.family"] = 'NanumSquare'
 
@@ -101,7 +105,7 @@ def analyze(request):
 
     plt.clf()
     #   df = df.dropna()
-    analyStat = ["BDH012", "BDH013", "BDH014", "BDH015"]
+    analyStat = ["BDH012", "BDH013", "BDH014", "BDH015", 'BDH016']
     analyPrd = ["BDH005", "BDH006", "BDH007", "BDH008"]
     analyCls = ["BDH001", "BDH002", "BDH003", "BDH004", "BDH009", "BDH010", "BDH011"]
 
@@ -233,6 +237,10 @@ def analyze(request):
         elif analy == "BDH015":
             #분산
             res = scatter(dfStat, statX, statY, statZ, statColor, statSize, statSymbol)
+
+        elif analy == "BDH016":
+            #분산
+            res = wordcloud(dfStat)
 
         resp = HttpResponse(str(res))
         resp.status_code = 200
@@ -921,3 +929,45 @@ def boxplot(indep, dep):
     base64_string = urllib.parse.quote(base64_string)
     print(base64_string)
     return {'fname': base64_string}
+
+def wordcloud(df):
+    print("wordcloud=======================")
+    dfList = []
+    for i in df.columns:
+        dfList = dfList + list(np.array(df[i].tolist()))
+
+
+
+    # wc = WordCloud(font_path = r'C:\mapsco\project\MAPSCO_IR\TCLOUD\src\main\webapp\resources\css\fonts\NanumSquareB.ttf', background_color="white", max_font_size=60).generate_from_frequencies(dict(dfList))
+    print(1)
+    print(" ".join(map(str, reversed(dfList))))
+    wc = WordCloud(stopwords = STOPWORDS, collocations=True).generate(" ".join(map(str, dfList)))
+    print(2)
+    plt.figure(figsize=(6, 6))  # 최종 워드 클라우드 사이즈 지정
+    print(3)
+    plt.imshow(wordcloud)
+    print(4)
+    plt.axis('off')
+
+    plt.show()
+
+    fname = str(uuid.uuid4()) + ".jpg"
+
+    script_dir = os.path.dirname(__file__)
+    results_dir = os.path.join(script_dir, 'Results/wordcloud/')
+
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+
+    plt.savefig(results_dir + fname, bbox_inches='tight')
+
+    with open(results_dir + fname, 'rb') as img:
+        base64_string = base64.b64encode(img.read())
+
+    base64_string = urllib.parse.quote(base64_string)
+    print(base64_string)
+    return {'fname': base64_string}
+
+
+
+

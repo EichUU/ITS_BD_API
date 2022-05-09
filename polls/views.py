@@ -9,7 +9,7 @@ from dbcon.connDB import get_conn
 
 # Create your views here.
 def get_table(request):
-
+    json_array = ""
     # UPMS(티베로), BIG_DATA(하이브)
     # POST로 받은 값이 null이면 GET으로 받음
     body_unicode = request.body.decode('utf-8')
@@ -26,11 +26,11 @@ def get_table(request):
     # dbhost, dbport is not used in tibero. because tibero is connected of odbc
     # hive don't use dbuser, dbpwd
     if tcate == "BIG_DATA":
-        print(tcate)
         try:
+            print(1)
 #            cur = get_conn("hive", "", "", "", "172.17.0.2", 10000)
-            cur = get_conn("mariadb", "hive", "root", "mapsco1338", "172.17.0.2", "3306")
-            print(cur)
+            cur = get_conn("mariadb", "hive", "root", "mapsco1!", "mapsco.kr", "3307")
+            print(2)
             cur.execute("""SELECT T1.TBL_NAME AS TABLE_NAME, 'BIG_DATA' AS TABLESPACE_NAME, T2.PARAM_VALUE AS COMMENTS FROM TBLS T1 LEFT OUTER JOIN TABLE_PARAMS T2 ON T1.TBL_ID = T2.TBL_ID AND T2.PARAM_KEY = 'COMMENT'""")
         except Exception as e:
             print(e)
