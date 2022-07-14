@@ -13,8 +13,8 @@ from bson.objectid import ObjectId
 #mongo_host = "192.168.0.193"
 
 #도커
-mongo_host = "172.17.0.6"
-mongo_port = 20000
+mongo_host = "localhost"
+mongo_port = 27017
 
 
 # 몽고디비 collection 생성
@@ -74,6 +74,8 @@ def documentInsert(request):
     print("db====>" + path)
     # documentKey값을 배열에 저장
     documentKey = []
+
+    print(header)
     for docuKey in list(header):
         # DOCUMENT_KEY에서 '.'이 있는 경우 . 뒤에 있는 항목으로 저장
         if docuKey["DOCUMENT_KEY"].find(".") > 0:
@@ -82,14 +84,17 @@ def documentInsert(request):
             documentKey.append(docuKey["DOCUMENT_KEY"])
 
     mongo = MongoClient(mongo_host, int(mongo_port))
+    try:
+        df = pd.read_excel(path, header=1, index_col=False, names=documentKey, skiprows=[0])
+        df = df.astype(str)
+        df.reset_index(inplace=True)
 
-    df = pd.read_excel(path, header=1, index_col=False, names=documentKey, skiprows=[0])
-    df.reset_index(inplace=True)
-
-    df = df.drop(columns=["index"])
-    dic = df.to_dict("records")
-    database = mongo[db]
-    collection = database[col]
+        df = df.drop(columns=["index"])
+        dic = df.to_dict("records")
+        database = mongo[db]
+        collection = database[col]
+    except Exception as e:
+        print(e)
 
     try:
         collection.insert_many(dic)

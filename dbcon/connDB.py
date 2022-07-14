@@ -47,4 +47,3 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         cur = conn.cursor()
 
     return cur
-

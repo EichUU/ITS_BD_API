@@ -14,6 +14,7 @@ import logging
 import plotly.express as px
 import plotly.graph_objects as go
 
+from statsmodels.graphics.mosaicplot import mosaic
 from urllib import parse
 from matplotlib import pyplot as plt, font_manager, rc
 from scipy.special import expit
@@ -105,7 +106,7 @@ def analyze(request):
 
     plt.clf()
     #   df = df.dropna()
-    analyStat = ["BDH012", "BDH013", "BDH014", "BDH015", 'BDH016']
+    analyStat = ["BDH012", "BDH013", "BDH014", "BDH015", 'BDH016', 'BDH017']
     analyPrd = ["BDH005", "BDH006", "BDH007", "BDH008"]
     analyCls = ["BDH001", "BDH002", "BDH003", "BDH004", "BDH009", "BDH010", "BDH011"]
 
@@ -239,8 +240,12 @@ def analyze(request):
             res = scatter(dfStat, statX, statY, statZ, statColor, statSize, statSymbol)
 
         elif analy == "BDH016":
-            #분산
+            #워드 클라우드
             res = wordcloud(dfStat)
+
+        elif analy == "BDH017":
+
+            res = getmosaic(dfStat)
 
         resp = HttpResponse(str(res))
         resp.status_code = 200
@@ -290,16 +295,10 @@ def linearRegression(train_x, train_y):
     if len(train_y.columns.values) == 2:
         fig = plt.figure(figsize=(8, 8))
         ax = fig.add_subplot(projection='3d')
-        # print(1)
-        # print(train_x.shape)
-        # print(train_y[train_y.columns.values[0]].values.reshape(-1,1).shape)
-        # print(train_y[train_y.columns.values[1]].values.reshape(-1,1).shape)
-        #
-        # print(2)
+
         x_pred = np.linspace(train_y[train_y.columns.values[0]].min(), train_y[train_y.columns.values[0]].max(), 10)
         y_pred = np.linspace(train_y[train_y.columns.values[1]].min(), train_y[train_y.columns.values[1]].max(), 10)
         xx_pred, yy_pred = np.meshgrid(x_pred, y_pred)
-        # print(3)
         try:
             Z = xx_pred * res.params[0] + yy_pred * res.params[1]
 
@@ -932,24 +931,22 @@ def boxplot(indep, dep):
 
 def wordcloud(df):
     print("wordcloud=======================")
+    df = df.astype(str)
+
     dfList = []
     for i in df.columns:
         dfList = dfList + list(np.array(df[i].tolist()))
 
 
-
-    # wc = WordCloud(font_path = r'C:\mapsco\project\MAPSCO_IR\TCLOUD\src\main\webapp\resources\css\fonts\NanumSquareB.ttf', background_color="white", max_font_size=60).generate_from_frequencies(dict(dfList))
-    print(1)
-    print(" ".join(map(str, reversed(dfList))))
-    wc = WordCloud(stopwords = STOPWORDS, collocations=True).generate(" ".join(map(str, dfList)))
-    print(2)
+    counts = Counter(dfList)
+    tags = counts.most_common(40)
+    # wc = WordCloud(stopwords = STOPWORDS, collocations=True).generate(" ".join(map(str, dfList)))
+    wc = WordCloud(font_path=r'C:\mapsco\project\MAPSCO_IR\TCLOUD\src\main\webapp\resources\css\fonts\NanumSquareB.ttf', background_color="white", max_font_size=60).generate_from_frequencies(dict(tags))
     plt.figure(figsize=(6, 6))  # 최종 워드 클라우드 사이즈 지정
-    print(3)
-    plt.imshow(wordcloud)
-    print(4)
     plt.axis('off')
+    plt.imshow(wc)
 
-    plt.show()
+    # plt.show()
 
     fname = str(uuid.uuid4()) + ".jpg"
 
@@ -968,6 +965,84 @@ def wordcloud(df):
     print(base64_string)
     return {'fname': base64_string}
 
+# getmosaic(data, column, sort, title)
+    # 인자 1개 : 들어갈 데이터
+    # 인자 2개 : 들어갈 데이터, 사용할 컬럼
+    # 인자 3개 : 들어갈 데이터, 사용할 컬럼, 정렬 기준
+    # 인자 4개 : 들어갈 데이터, 사용할 컬럼, 정렬 기준, 타이들
+    # 인자 1개의 경우(들어갈 데이터만 넣어준 경우) 사용될 컬럼의 수가 3개 이하일 경우 알아서 출력해주지만,
+    # 컬럼의 수가 4개 이상으로 많거나 혹은 기타의 이유로 예외처리가 작동하는 경우 데이터가 나오지 않을 수 있다.
+    # 이 경우 사용될 컬럼을 ;을 구분자로 넣어 공백 없이 입력하면 값을 추려 작동시킬 수 있다.
 
+def getmosaic(*args):
+    global paramdata
+    global paramcolumns
+    global sort
+    global title
 
+    print(1)
+    if len(args) == 1:
+        paramdata = args[0]
 
+        try:
+            usecolumn = paramdata.columns.tolist()
+            if len(paramdata.columns) < 4:
+                mosaic(paramdata, index=usecolumn)
+            else:
+                raise Exception("예외 발생. 사용되는 컬럼의 수가 많습니다. 사용할 컬럼을 지정해주세요.")
+
+        except Exception as e:
+            print(e)
+
+    if len(args) == 2:
+        paramdata = args[0]
+        paramcolumns = args[1]
+
+        try:
+            usecolumn = paramcolumns.split(";")
+            mosaic(paramdata, index=usecolumn)
+
+        except Exception as e:
+            print(e)
+
+    if len(args) == 3:
+        paramdata = args[0]
+        paramcolumns = args[1]
+        sort = args[2]
+
+        try:
+            usecolumn = paramcolumns.split(";")
+            mosaic(paramdata.sort_values(sort), index=usecolumn)
+
+        except Exception as e:
+            print(e)
+
+    if len(args) == 4:
+        paramdata = args[0]
+        paramcolumns = args[1]
+        sort = args[2]
+        title = args[3]
+
+        try:
+            usecolumn = paramcolumns.split(";")
+            mosaic(paramdata.sort_values(sort), index=usecolumn, title=title)
+
+        except Exception as e:
+            print(e)
+
+    fname = str(uuid.uuid4()) + ".jpg"
+
+    script_dir = os.path.dirname(__file__)
+    results_dir = os.path.join(script_dir, 'Results/mosaicmap/')
+
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+
+    plt.savefig(results_dir + fname, bbox_inches='tight')
+
+    with open(results_dir + fname, 'rb') as img:
+        base64_string = base64.b64encode(img.read())
+
+    base64_string = urllib.parse.quote(base64_string)
+    print(base64_string)
+    return {'fname': base64_string}

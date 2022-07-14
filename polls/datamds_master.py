@@ -75,14 +75,15 @@ host = "192.168.0.193"
 port = 10000
 
 # MongDB CONNECTION INFO
-mongo_host = "192.168.0.193"
-mongo_port = 20000
+mongo_host = "localhost"
+mongo_port = 27017
 
 # expire_time = 2 : 2분 주기로 connection check(ping)
 
-connection_tibero = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
+connection_tibero = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+# cx_Oracle.connect("BDAS", "!#GONGT*", "192.168.102.70:1521/SMISBK?expire_time=2")
 
-connection_hive = hive.Connection(host="192.168.0.193", port=10000, auth="NOSASL", database="default")
+# connection_hive = hive.Connection(host="192.168.0.193", port=10000, auth="NOSASL", database="default")
 
 # connection = cx_Oracle.connect("HAKSA", "!#HAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
 # connection.callTimeout = 0
@@ -419,6 +420,9 @@ def mongodb_query(request):
     database = mongo[db]
     collection = database[col]
     query_result = pd.DataFrame()
+
+    print(database)
+    print(collection)
     try:
         if query is None or query == '':
             cursor = objectIdDecoder(collection.find({}))
@@ -428,6 +432,7 @@ def mongodb_query(request):
             json_cache['$match'] = json.loads(query)
             json_cache['$group'] = json.loads(projection)
             print(json_cache)
+            print(query)
 
             #strquery = '{$match: {"YY": "2018"}, $group: {"_id": "$YY", "STD_CNT_SUM": {"$sum": "$STD_CNT"}}}'
 
@@ -435,8 +440,11 @@ def mongodb_query(request):
 
             #cursor = objectIdDecoder(collection.aggregate(json.loads(strquery)))
 
-            #cursor = objectIdDecoder(collection.find({'YY':'2018'}))
-            cursor = objectIdDecoder(collection.find(json.loads(query)))
+            # cursor = objectIdDecoder(collection.find('{$match: {"YY": "2018"}'))
+            # cursor = objectIdDecoder(collection.aggregate(json_cache))
+            print(123)
+            cursor = objectIdDecoder(collection.aggregate(json.loads('[{"$group": {"_id": "$YY", "YY_COUNT": {"$sum": 1}}}]')))
+            print(456)
             #cursor = objectIdDecoder(collection.find(pql.find(query)))
 
         #Mongdb query결과를 DataFrame 저장

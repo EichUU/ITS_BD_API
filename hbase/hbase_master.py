@@ -25,39 +25,17 @@ def hbaseSchedule(request):
         tableName = body['tableName']
         cf = body['cf']
         query = body['query']
-        pk = body['pk']
 
     else:
         tableName = request.GET.get("tableName")
         cf = request.GET.get("cf")
         query = request.GET.get("query")
-        pk = request.GET.get("pk")
 
     conn = get_conn("oracle", "THAKSA_NEW", "THAKSA_NEW", "Thaksa32!4new", "192.168.0.13:1521/CMELU", "1521")
 
-    cf = {"SCHL_CLAS" : "cf1", "SCHL_CD": "cf1", "STD_NO": "cf1", "COUNT":"cf1", "SUM_AMT":"cf1", "SHREG_CHG_CD":"cf1", "DETA_RESN_CD":"cf1", "ROWKEY":"cf1"}
-    query = """SELECT SUBSTR(A.SCHL_CLAS, -3) AS SCHL_CLAS
-                     , A.SCHL_CD
-                     , B.STD_NO AS 학번
-                     , COUNT(B.SCHL_SUM_AMT) AS COUNT
-                     , SUM(B.SCHL_SUM_AMT) AS SUM_AMT
-                     , SUBSTR(SHREG_CHG_CD, -3)
-                     , SUBSTR(DETA_RESN_CD, -3)
-                     , ROWNUM
-                  FROM TSCG010_M A
-                     , TSCG080_M B
-                     , (SELECT STD_NO
-                         , SHREG_CHG_CD
-                         , DETA_RESN_CD
-                    FROM TSCA060_M) C
-                 WHERE A.SCHL_CD = B.SCHL_CD
-                   AND B.STD_NO = C.STD_NO(+)
-                 GROUP BY A.SCHL_CLAS, B.STD_NO, A.SCHL_CD, A.SCHL_NM,DETA_RESN_CD, SHREG_CHG_CD, ROWNUM
-                 ORDER BY B.STD_NO"""
-
     cur = conn.execute(query)
+
     result = pd.DataFrame(cur)
-    tableName = "schl_1"
     columns = []
     columnFamily = []
 
@@ -119,6 +97,7 @@ def makeRowKey(df, arrPk):
 
     return df
 
+
 # conn = cx_Oracle.connect("THAKSA_NEW", "Thaksa32!4new", "192.168.102.61:1527/ORA11g")
 # conn = conn.cursor()
 #
@@ -157,3 +136,26 @@ def makeRowKey(df, arrPk):
 # ##    resp.status_code = 400
 # ##    return resp
 # print(res)
+#
+# listFname = ['VW_SCHL_ANALYZE_MASTER.xlsx', 'VW_STD_GRAD_ANALYZE.xlsx', 'VW_STD_GRAD_YY_ANALYZE.xlsx', 'VW_STD_SCHL_SUM.xlsx', 'VW_STD_SHREG_ANALYZE.xlsx']
+# #listFname = ['VW_STD_GRAD_YY_ANALYZE.xlsx']
+#
+# for i in listFname:
+#     df = pd.read_excel(r'C:/Users/sunho/Desktop/' + i)
+#     cf = {}
+#     for j in df.columns:
+#         cf.update({j : "cf1"})
+#         print(cf)
+#
+#     tableName = i.split(".")[0]
+#
+#     columns = []
+#     columnFamily = []
+#
+#     for j in cf:
+#        columns.append(j)
+#        columnFamily.append(cf[j])
+#
+#     res = hbaseInsert(tableName, df, columnFamily)
+
+#
