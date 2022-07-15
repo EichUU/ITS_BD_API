@@ -1,5 +1,6 @@
 import json
 import pyodbc
+import cx_Oracle
 import os
 
 from django.shortcuts import render
@@ -57,6 +58,12 @@ def get_table(request):
             "SELECT DATABASE_NM TABLE_NAME, UP_DATABASE_NM TABLESPACE_NAME, DATABASE_COMMENT COMMENTS, 0 NUM_ROWS, DATABASE_ID ID_KEY "
             "FROM T_MONGO_M  " +
             "WHERE DATABASE_LEVEL='2' AND NVL(USE_YN, 'Y') = 'Y' AND UP_DATABASE_ID NOT IN ('00001') ORDER BY UP_DATABASE_NM, DATABASE_NM ")
+
+    elif tcate == "BDAS":
+        cur = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+        cur = cur.execute(
+            "select A.TABLE_NAME TABLE_NAME, A.OWNER TABLESPACE_NAME, B.COMMENTS COMMENTS, A.NUM_ROWS NUM_ROWS from ALL_TABLES A, ALL_TAB_COMMENTS B where A.TABLE_NAME = B.TABLE_NAME AND A.OWNER = '" + tspace + "' " +
+            "UNION ALL SELECT A.VIEW_NAME TABLE_NAME, A.OWNER TABLESPACE_NAME, B.COMMENTS COMMENTS, 0 NUM_ROWS from ALL_VIEWS A, USER_TAB_COMMENTS B where A.VIEW_NAME = B.TABLE_NAME AND A.OWNER='" + tspace + "' ORDER BY TABLE_NAME")
 
     else:
         return HttpResponse("No tspace")
@@ -137,12 +144,18 @@ def insertTable(request):
         strUserId = request.GET.get('userID')
         strUserIp = request.GET.get('userIP')
 
-    print(strTableNm)
-    print(strTableComment)
     #티베로DB > tablespace에  tablename 존재 유무 검사
-    conn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
-    conn.setencoding(encoding='utf-8')
-    strSql = """SELECT MDS_TABLE_SEQ FROM T_MDS_TABLES_M WHERE MDS_TABLE_USER='""" + strTableSpaceNm +"""' AND MDS_TNAME='"""+ strTableNm +"""'"""
+    #conn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
+
+    if strCategoryNm == "BDAS":
+        # oracle localTest
+        conn = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+
+    else:
+        conn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
+        conn.setencoding(encoding='utf-8')
+
+    strSql = """SELECT MDS_TABLE_SEQ FROM TPBDA020_M WHERE MDS_TABLE_USER='""" + strTableSpaceNm +"""' AND MDS_TNAME='"""+ strTableNm +"""'"""
     cur = conn.execute(strSql)
     rowData = cur.fetchall()
     conn.close()
@@ -190,6 +203,13 @@ def insertTable(request):
         conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
         #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
         rowColumnInfo = getNoSqlDocument(conn, strTableSpaceNm, strTableNm)
+    elif strCategoryNm == "BDAS":
+        # oracle
+        DBUSER = 'BDAS'
+        conn = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
+
     else:
         return HttpResponse("No tspace")
 
@@ -197,34 +217,68 @@ def insertTable(request):
     conn.close()
 
     #MDS관리 테이블에 정보를 저장
-    mdsConn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
 
-    #서버가 원도용가 아닐경우 아래 주석을 풀어주기
-    mdsCursor = mdsConn.cursor()
-    mdsCursor.execute("""INSERT INTO T_MDS_TABLES_M (MDS_TABLE_SEQ, MDS_CATE_NM, MDS_TABLE_USER, MDS_TNAME, MDS_TABLE_DESCRIPTION, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
-                        VALUES (SEQ_T_MDS_TABLES_01.NEXTVAL,?,?,?,?,?,?,SYSDATE,?,?,SYSDATE,?)""",
-                        strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp, strUserId, strUserIp)
-    mdsConn.commit()
+    if strCategoryNm == "BDAS":
+        # oracle
+        #mdsConn = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+        dbuser = "BDAS"
+        dbpwd = "BDAS12#$"
+        dbhost = "mapsco.kr:1531/XE"
+
+        mdsConn = cx_Oracle.connect(user=dbuser, password=dbpwd, dsn=dbhost)
+        cur = mdsConn.cursor()
+
+        cur.execute("""INSERT INTO TPBDA020_M (MDS_TABLE_SEQ, MDS_CATE_NM, MDS_TABLE_USER, MDS_TNAME, MDS_TABLE_DESCRIPTION, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
+                            VALUES (SEQ_TPBDA020_M.NEXTVAL, :MDS_CATE_NM, :MDS_TABLE_USER, :MDS_TNAME, :MDS_TABLE_DESCRIPTION,:MAKE_ID, :INPT_ID,SYSDATE, :INPT_IP, :UPDT_ID,SYSDATE, :UPDT_IP)""",
+                        (strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp, strUserId, strUserIp))
+
+        mdsConn.commit()
+
+    elif strCategoryNm == "UPMS" or strCategoryNm == "SQL" or strCategoryNm == "NoSql":
+        # tibero 등 기타
+        # MDS관리 테이블에 정보를 저장
+        mdsConn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
+
+        # 서버가 원도용가 아닐경우 아래 주석을 풀어주기
+        mdsCursor = mdsConn.cursor()
+        mdsCursor.execute("""INSERT INTO TPBDA020_M (MDS_TABLE_SEQ, MDS_CATE_NM, MDS_TABLE_USER, MDS_TNAME, MDS_TABLE_DESCRIPTION, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
+                                VALUES (SEQ_TPBDA020_M.NEXTVAL,?,?,?,?,?,?,SYSDATE,?,?,SYSDATE,?)""",
+                          strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp,
+                          strUserId, strUserIp)
+        mdsConn.commit()
 
 
-    if strCategoryNm == "UPMS" or strCategoryNm == "SQL" or strCategoryNm == "NoSql":
+
+    # MDS관리 컬럼 테이블에 정보를 저장
+    if strCategoryNm == "BDAS":
+        # oracle
         for it in rowColumnInfo:
-            mdsCursor.execute("""INSERT INTO T_MDS_COLUMNS_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
-                                            VALUES (?, SEQ_T_MDS_TABLES_01.CURRVAL, ?, ?, ?, ?, ?, ?, ?, SYSDATE, ?, ?, SYSDATE, ?)""",
-                              int(it[4]), it[0], it[1], it[2], it[3].strip(), int(it[4]), strUserId, strUserId, strUserIp, strUserId, strUserIp)
+            cur.execute("""INSERT INTO TPBDA030_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP)
+                                            VALUES (:MDS_COLUMN_SEQ, SEQ_TPBDA020_M.CURRVAL, :MDS_COLUMN_NAME, :MDS_COLUMN_TYPE, :MDS_COLUMN_DESCRIPTION, :COLUMN_KEY_YN, :COLUMN_ID_SEQ, :MAKE_ID, :INPT_ID, SYSDATE, :INPT_IP, :UPDT_ID, SYSDATE, :UPDT_IP)""",
+                        (int(it[4]), it[0], it[1], it[2], it[3].strip(), int(it[4]), strUserId, strUserId, strUserIp,
+                         strUserId, strUserIp))
             mdsConn.commit()
 
+    elif strCategoryNm == "UPMS" or strCategoryNm == "SQL" or strCategoryNm == "NoSql":
+        for it in rowColumnInfo:
+            mdsConn.execute("""INSERT INTO TPBDA030_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP)
+                                            VALUES (?, SEQ_TPBDA020_M.CURRVAL, ?, ?, ?, ?, ?, ?, ?, SYSDATE, ?, ?, SYSDATE, ?)""",
+                            int(it[4]), it[0], it[1], it[2], it[3].strip(), int(it[4]), strUserId, strUserId, strUserIp,
+                            strUserId, strUserIp)
+            mdsConn.commit()
 
     elif strCategoryNm == "BIG_DATA":
         for idx, val in enumerate(rowColumnInfo):
             COLUMN_ID_SEQ = idx
             MDS_COLUMN_NAME = val[0]
             COLUMN_KEY_YN = "N"
-            MDS_COLUMN_TYPE= val[1]
+            MDS_COLUMN_TYPE = val[1]
             MDS_COLUMN_DESCRIPTION = val[2]
 
-            mdsCursor.execute("""INSERT INTO T_MDS_COLUMNS_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
-                                            VALUES (:MDS_COLUMN_SEQ, SEQ_T_MDS_TABLES_01.CURRVAL, :MDS_COLUMN_NAME, :MDS_COLUMN_TYPE, :MDS_COLUMN_DESCRIPTION, :COLUMN_KEY_YN, :COLUMN_ID_SEQ, :strUserId, :strUserId, SYSDATE, :strUserIp, :strUserId, SYSDATE, :strUserIp)""",(COLUMN_ID_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, strUserId, strUserId, strUserIp, strUserId, strUserIp))
+            mdsConn.execute("""INSERT INTO TPBDA030_D (MDS_COLUMN_SEQ, MDS_TABLE_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN, COLUMN_ID_SEQ, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP)
+                                            VALUES (:MDS_COLUMN_SEQ, SEQ_TPBDA020_M.CURRVAL, :MDS_COLUMN_NAME, :MDS_COLUMN_TYPE, :MDS_COLUMN_DESCRIPTION, :COLUMN_KEY_YN, :COLUMN_ID_SEQ, :strUserId, :strUserId, SYSDATE, :strUserIp, :strUserId, SYSDATE, :strUserIp)""",
+                            (COLUMN_ID_SEQ, MDS_COLUMN_NAME, MDS_COLUMN_TYPE, MDS_COLUMN_DESCRIPTION, COLUMN_KEY_YN,
+                             COLUMN_ID_SEQ, strUserId, strUserId, strUserIp, strUserId, strUserIp))
             mdsConn.commit()
 
 
@@ -241,7 +295,8 @@ def insertTable(request):
 
 #컬럼 정보 및 PK정보를 가지고 옴
 def getTableColumnPK( dbConn, tableOwner, tableNm ) :
-    dbConn.setencoding(encoding='utf-8')
+
+    #dbConn.setencoding(encoding='utf-8')
     strSql = """SELECT T2.COLUMN_NAME, T1.DATA_TYPE, T2.COMMENTS
                      , DECODE(NVL(T3.CONSTRAINT_TYPE, 'N'), 'N', 'N', 'Y') AS PK_YN, T1.COLUMN_ID
                 FROM ALL_TAB_COLUMNS T1 
@@ -258,6 +313,7 @@ def getTableColumnPK( dbConn, tableOwner, tableNm ) :
                   AND T1.COLUMN_NAME = T3.COLUMN_NAME(+)
                   AND T1.OWNER='""" + tableOwner +"""' AND T1.TABLE_NAME ='"""+ tableNm +"""'
                 ORDER BY T1.COLUMN_ID"""
+
     cur = dbConn.execute(strSql)
     retRow = cur.fetchall()
 
@@ -269,8 +325,8 @@ def getNoSqlDocument( dbConn, tableOwner, tableNm ) :
     dbConn.setencoding(encoding='utf-8')
     strSql = """SELECT T1.DOCUMENT_KEY AS COLUMN_NAME, 'VARCHAR' AS DATA_TYPE, T1.DOCUMENT_COMMENT AS COMMENTS 
                      , 'N' AS PK_YN, T1.SORT_ORD AS COLUMN_ID
-                FROM T_MONGO_DOCU_D T1 
-                   , T_MONGO_M T2 
+                FROM MCBDA020_D T1 
+                   , MCBDA010_M T2 
                 WHERE T1.DATABASE_ID = T2.DATABASE_ID
                   AND NVL(T1.USE_YN, 'Y') = 'Y'
                   AND T2.UP_DATABASE_NM='""" + tableOwner +"""' AND T2.DATABASE_NM ='"""+ tableNm +"""'
