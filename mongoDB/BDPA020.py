@@ -15,8 +15,9 @@ from django.http import HttpResponse
 from pip._internal.utils.parallel import TIMEOUT
 from pymongo import MongoClient
 
+from dbcon.connDB import get_conn
 
-mongo_host = "localhost"
+mongo_host = "192.168.0.59"
 mongo_port = 27017
 
 client = MongoClient(mongo_host, int(mongo_port))
@@ -177,4 +178,119 @@ def getImage(request):
         resp = HttpResponse(status=400)
         return resp
 
+def getColumnComment(request) :
+    body_unicode = request.body.decode('utf-8')
 
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        db = body['DB']
+        collection = body['COLLECTION']
+
+    else:
+        db = request.GET.get("DB")
+        collection = request.GET.get("COLLECTION")
+
+    try:
+        db = client[db]
+        col = db[collection]
+
+        # resp = getColumnCommentO(col)
+        resp = getColumnCommentM(col)
+        return resp
+
+    except Exception as e:
+        print(e)
+        resp = HttpResponse(status=400)
+        return resp
+
+def getColumnCommentO(col):
+
+    # COMMENT가 저장되어있는 테이블 전체 호출
+    sql = """SELECT DICT_COL_NM, DICT_DETAIL_NM FROM TPSYA060_M """
+    cur = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+    cur = cur.execute(sql)
+
+    # 데이터프레임 선언
+    returnDf = pd.DataFrame(columns=["DICT_COL_NM", "DICT_DETAIL_NM"])
+
+    # 데이터 프레임 인덱스 변수
+    index = 0
+
+    # ORACLE 쿼리 결과 커서로 FOR문 동작
+    # i : DICT_COL_NM
+    # j : DICT_DETAIL_NM
+    for i, j in cur.fetchall():
+        try:
+            # 컬럼이 존재하는지 MONGO에서 조회
+            res = col.find({i: {"$exists": True}}, {'_id': 0, i: 1}).limit(1)
+            # 컬럼이 존재한다면 해당 컬럼을 컬럼명과 함께 데이터프레임에 저장
+            if res.count() > 0:
+                returnDf.loc[index] = [list(res[0].keys())[0], j]
+                index += 1
+        except Exception as e:
+            print(e)
+
+    resp = HttpResponse(returnDf.to_json(orient='records', force_ascii=False))
+    resp.status_code = 200
+    return resp
+
+# 기준 : mongodb(속도가 느림)
+# 몽고db에서 전체 행을 읽어와 column명 추출
+def getColumnCommentM(col):
+
+    #전체 행 조회
+    # res = col.find({}, {'_id': 0})
+
+    #모든 행 컬럼이 같을경우 limit을 사용하여 첫째행만 가져온다.
+    res = col.find({}, {'_id': 0}).limit(1)
+
+    # 가져온 데이터를 데이터프레임형태로 저장
+    dfColumn = pd.DataFrame(list(res))
+    # 데이터가 있을경우 실행하고, 없다면 404 에러
+    if len(dfColumn.columns) > 0:
+
+        # 데이터프레임 컬럼명
+        arrColumns = dfColumn.columns
+
+        strColumn = ""
+
+        # 데이터프레임 컬럼명을 통해 in 절 text
+        for i in arrColumns:
+            strColumn += "'" + i + "',"
+
+        # 마지막 , 제거
+        strColumn = strColumn.rstrip(",")
+
+        sql = """SELECT DICT_COL_NM, DICT_DETAIL_NM FROM TPSYA060_M WHERE DICT_COL_NM IN (""" + strColumn + """)"""
+
+        cur = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+        cur = cur.execute(sql)
+
+        # 오라클 쿼리 결과를 데이터프레임으로 변경
+        df = pd.DataFrame(cur)
+        df.columns = ["DICT_COL_NM", "DICT_DETAIL_NM"]
+
+        # 몽고db에서 불러온 컬럼명을 데이터프레임으로 변경.
+        # 이 때, 오라클 데이터와 조인하기 위해 DICT_COL_NM 으로 만듬
+        dfColumn = pd.DataFrame(arrColumns, columns=["DICT_COL_NM"])
+
+        # 오라클에서 불러온 데이터가 없을 경우 COMMENT를 컬럼명으로 지정한다.
+        if df.shape[0] == 0:
+            dfColumn['DICT_DETAIL_NM'] = dfColumn['DICT_COL_NM']
+            returnDf = dfColumn
+        # 오라클에서 불러온 데이터와 조인
+        else:
+            returnDf = pd.merge(dfColumn, df, on="DICT_COL_NM", how="left")
+
+        print(7)
+        # 오라클에서 COMMENT가 없을경우 컬럼명으로 변경한다.
+        returnDf["DICT_DETAIL_NM"] = returnDf["DICT_DETAIL_NM"].fillna(returnDf["DICT_COL_NM"])
+
+        resp = HttpResponse(returnDf.to_json(orient='records', force_ascii=False))
+        resp.status_code = 200
+        return resp
+
+    else:
+        resp = HttpResponse("저장된 데이터가 존재하지 않습니다.")
+        resp.status_code = 404
+        return resp
