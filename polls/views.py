@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from pyhive import hive
 from dbcon.connDB import get_conn
 
+
 # Create your views here.
 def get_table(request):
     json_array = ""
@@ -29,10 +30,11 @@ def get_table(request):
     if tcate == "BIG_DATA":
         try:
             print(1)
-#            cur = get_conn("hive", "", "", "", "172.17.0.2", 10000)
+            #            cur = get_conn("hive", "", "", "", "172.17.0.2", 10000)
             cur = get_conn("mariadb", "hive", "root", "mapsco1!", "mapsco.kr", "3307")
             print(2)
-            cur.execute("""SELECT T1.TBL_NAME AS TABLE_NAME, 'BIG_DATA' AS TABLESPACE_NAME, T2.PARAM_VALUE AS COMMENTS FROM TBLS T1 LEFT OUTER JOIN TABLE_PARAMS T2 ON T1.TBL_ID = T2.TBL_ID AND T2.PARAM_KEY = 'COMMENT'""")
+            cur.execute(
+                """SELECT T1.TBL_NAME AS TABLE_NAME, 'BIG_DATA' AS TABLESPACE_NAME, T2.PARAM_VALUE AS COMMENTS FROM TBLS T1 LEFT OUTER JOIN TABLE_PARAMS T2 ON T1.TBL_ID = T2.TBL_ID AND T2.PARAM_KEY = 'COMMENT'""")
         except Exception as e:
             print(e)
 
@@ -45,7 +47,7 @@ def get_table(request):
 
     elif tcate == "SQL":
         cur = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
-        #스케쥴링에 등록 된 동적SQL에 대한 TABLE정보를 가지고 옴
+        # 스케쥴링에 등록 된 동적SQL에 대한 TABLE정보를 가지고 옴
         cur = cur.execute(
             "select A.TABLE_NAME TABLE_NAME, A.OWNER TABLESPACE_NAME, B.COMMENTS COMMENTS, A.NUM_ROWS NUM_ROWS "
             "from ALL_TABLES A, ALL_TAB_COMMENTS B where A.TABLE_NAME = B.TABLE_NAME AND A.OWNER = 'UPMS' " +
@@ -53,7 +55,7 @@ def get_table(request):
 
     elif tcate == "NoSql":
         cur = get_conn("tibero", "TIBERO", "UPMS", "UPMS12#$", "", "")
-        #비정형계(NoSql:MongoDB) IR_RESULT유저를 제외함.
+        # 비정형계(NoSql:MongoDB) IR_RESULT유저를 제외함.
         cur = cur.execute(
             "SELECT DATABASE_NM TABLE_NAME, UP_DATABASE_NM TABLESPACE_NAME, DATABASE_COMMENT COMMENTS, 0 NUM_ROWS, DATABASE_ID ID_KEY "
             "FROM T_MONGO_M  " +
@@ -124,9 +126,9 @@ def get_column(request):
 
 
 def insertTable(request):
-    #Table정보를 저장한다.
+    # Table정보를 저장한다.
 
-    #tspace = request.POST.get("tspace")
+    # tspace = request.POST.get("tspace")
     body_unicode = request.body.decode('utf-8')
     if len(body_unicode) != 0:
         body = json.loads(body_unicode)
@@ -144,8 +146,8 @@ def insertTable(request):
         strUserId = request.GET.get('userID')
         strUserIp = request.GET.get('userIP')
 
-    #티베로DB > tablespace에  tablename 존재 유무 검사
-    #conn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
+    # 티베로DB > tablespace에  tablename 존재 유무 검사
+    # conn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
 
     if strCategoryNm == "BDAS":
         # oracle localTest
@@ -155,7 +157,7 @@ def insertTable(request):
         conn = pyodbc.connect('DSN=TIBERO;UID=UPMS;PWD=UPMS12#$')
         conn.setencoding(encoding='utf-8')
 
-    strSql = """SELECT MDS_TABLE_SEQ FROM TPBDA020_M WHERE MDS_TABLE_USER='""" + strTableSpaceNm +"""' AND MDS_TNAME='"""+ strTableNm +"""'"""
+    strSql = """SELECT MDS_TABLE_SEQ FROM TPBDA020_M WHERE MDS_TABLE_USER='""" + strTableSpaceNm + """' AND MDS_TNAME='""" + strTableNm + """'"""
     cur = conn.execute(strSql)
     rowData = cur.fetchall()
     conn.close()
@@ -185,7 +187,7 @@ def insertTable(request):
         DBUSER = 'UPMS'
         DBPWD = 'UPMS12#$'
         conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
-        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        # 해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
         rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
     elif strCategoryNm == "SQL":
         # 동적SQL문
@@ -193,7 +195,7 @@ def insertTable(request):
         DBUSER = 'UPMS'
         DBPWD = 'UPMS12#$'
         conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
-        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        # 해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
         rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
     elif strCategoryNm == "NoSql":
         # NoSql(MongoDB)에 관한 Collection정보를 가져옴
@@ -201,26 +203,25 @@ def insertTable(request):
         DBUSER = 'UPMS'
         DBPWD = 'UPMS12#$'
         conn = pyodbc.connect('DSN=' + DSNNAME + ';UID=' + DBUSER + ';PWD=' + DBPWD)
-        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        # 해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
         rowColumnInfo = getNoSqlDocument(conn, strTableSpaceNm, strTableNm)
     elif strCategoryNm == "BDAS":
         # oracle
         DBUSER = 'BDAS'
         conn = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
-        #해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
+        # 해당 Table에 대한 컬럼 정보 및 pk정보를 가지고 옴
         rowColumnInfo = getTableColumnPK(conn, DBUSER, strTableNm)
 
     else:
         return HttpResponse("No tspace")
 
-
     conn.close()
 
-    #MDS관리 테이블에 정보를 저장
+    # MDS관리 테이블에 정보를 저장
 
     if strCategoryNm == "BDAS":
         # oracle
-        #mdsConn = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+        # mdsConn = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
         dbuser = "BDAS"
         dbpwd = "BDAS12#$"
         dbhost = "mapsco.kr:1531/XE"
@@ -230,7 +231,8 @@ def insertTable(request):
 
         cur.execute("""INSERT INTO TPBDA020_M (MDS_TABLE_SEQ, MDS_CATE_NM, MDS_TABLE_USER, MDS_TNAME, MDS_TABLE_DESCRIPTION, MAKE_ID, INPT_ID, INPT_DT, INPT_IP, UPDT_ID, UPDT_DT, UPDT_IP) 
                             VALUES (SEQ_TPBDA020_M.NEXTVAL, :MDS_CATE_NM, :MDS_TABLE_USER, :MDS_TNAME, :MDS_TABLE_DESCRIPTION,:MAKE_ID, :INPT_ID,SYSDATE, :INPT_IP, :UPDT_ID,SYSDATE, :UPDT_IP)""",
-                        (strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp, strUserId, strUserIp))
+                    (strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp,
+                     strUserId, strUserIp))
 
         mdsConn.commit()
 
@@ -246,8 +248,6 @@ def insertTable(request):
                           strCategoryNm, strTableSpaceNm, strTableNm, strTableComment, strUserId, strUserId, strUserIp,
                           strUserId, strUserIp)
         mdsConn.commit()
-
-
 
     # MDS관리 컬럼 테이블에 정보를 저장
     if strCategoryNm == "BDAS":
@@ -281,22 +281,21 @@ def insertTable(request):
                              COLUMN_ID_SEQ, strUserId, strUserId, strUserIp, strUserId, strUserIp))
             mdsConn.commit()
 
-
     # Connection 닫기
     mdsConn.close()
 
-    #결과값을 JSON으로 리턴
+    # 결과값을 JSON으로 리턴
     tables = dict()
     tables["status"] = "ok"
     tables["msg"] = "table insert."
     array_dict.append(tables)
     json_array = json.dumps(array_dict)
-    return HttpResponse(json_array,  content_type="application/json; charset=utf-8")
+    return HttpResponse(json_array, content_type="application/json; charset=utf-8")
 
-#컬럼 정보 및 PK정보를 가지고 옴
-def getTableColumnPK( dbConn, tableOwner, tableNm ) :
 
-    #dbConn.setencoding(encoding='utf-8')
+# 컬럼 정보 및 PK정보를 가지고 옴
+def getTableColumnPK(dbConn, tableOwner, tableNm):
+    # dbConn.setencoding(encoding='utf-8')
     strSql = """SELECT T2.COLUMN_NAME, T1.DATA_TYPE, T2.COMMENTS
                      , DECODE(NVL(T3.CONSTRAINT_TYPE, 'N'), 'N', 'N', 'Y') AS PK_YN, T1.COLUMN_ID
                 FROM ALL_TAB_COLUMNS T1 
@@ -304,14 +303,14 @@ def getTableColumnPK( dbConn, tableOwner, tableNm ) :
                    , ( SELECT A.TABLE_NAME, B.COLUMN_NAME, A.CONSTRAINT_NAME, A.CONSTRAINT_TYPE, A.SEARCH_CONDITION
                        FROM USER_CONSTRAINTS A, USER_CONS_COLUMNS B
                        WHERE A.CONSTRAINT_NAME = B.CONSTRAINT_NAME
-                         AND A.OWNER='""" + tableOwner +"""' AND A.TABLE_NAME ='"""+ tableNm +"""' AND A.CONSTRAINT_TYPE = 'P'
+                         AND A.OWNER='""" + tableOwner + """' AND A.TABLE_NAME ='""" + tableNm + """' AND A.CONSTRAINT_TYPE = 'P'
                      ) T3
                 WHERE T1.OWNER = T2.OWNER
                   AND T1.TABLE_NAME = T2.TABLE_NAME
                   AND T1.COLUMN_NAME = T2.COLUMN_NAME
                   AND T1.TABLE_NAME = T3.TABLE_NAME(+)
                   AND T1.COLUMN_NAME = T3.COLUMN_NAME(+)
-                  AND T1.OWNER='""" + tableOwner +"""' AND T1.TABLE_NAME ='"""+ tableNm +"""'
+                  AND T1.OWNER='""" + tableOwner + """' AND T1.TABLE_NAME ='""" + tableNm + """'
                 ORDER BY T1.COLUMN_ID"""
 
     cur = dbConn.execute(strSql)
@@ -319,8 +318,9 @@ def getTableColumnPK( dbConn, tableOwner, tableNm ) :
 
     return retRow
 
-#NoSql Document Key, Key 설명 정보를 가지고 옴
-def getNoSqlDocument( dbConn, tableOwner, tableNm ) :
+
+# NoSql Document Key, Key 설명 정보를 가지고 옴
+def getNoSqlDocument(dbConn, tableOwner, tableNm):
     print("==" + tableOwner)
     dbConn.setencoding(encoding='utf-8')
     strSql = """SELECT T1.DOCUMENT_KEY AS COLUMN_NAME, 'VARCHAR' AS DATA_TYPE, T1.DOCUMENT_COMMENT AS COMMENTS 
@@ -329,13 +329,14 @@ def getNoSqlDocument( dbConn, tableOwner, tableNm ) :
                    , MCBDA010_M T2 
                 WHERE T1.DATABASE_ID = T2.DATABASE_ID
                   AND NVL(T1.USE_YN, 'Y') = 'Y'
-                  AND T2.UP_DATABASE_NM='""" + tableOwner +"""' AND T2.DATABASE_NM ='"""+ tableNm +"""'
+                  AND T2.UP_DATABASE_NM='""" + tableOwner + """' AND T2.DATABASE_NM ='""" + tableNm + """'
                 ORDER BY T1.SORT_ORD"""
     cur = dbConn.execute(strSql)
     retRow = cur.fetchall()
     print(retRow)
 
     return retRow
+
 
 def getBigDataColumnPK(dbConn, tableOwner, tableNm):
     strSql = """DESC """ + tableNm

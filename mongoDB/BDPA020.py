@@ -12,7 +12,7 @@ import shap
 import pickle
 import matplotlib.pyplot as plt
 from django.http import HttpResponse
-from pip._internal.utils.parallel import TIMEOUT
+# from pip._internal.utils.parallel import TIMEOUT
 from pymongo import MongoClient
 
 from dbcon.connDB import get_conn
