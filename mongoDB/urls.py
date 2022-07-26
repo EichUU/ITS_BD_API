@@ -11,5 +11,6 @@ urlpatterns = [
     path('mongoDeletChk', monggo.deleteChk, name="deleteChk"),
     path('getStdInform', BDPA020.getStdInform, name="getStdInform"),
     path('getStdGraph', BDPA020.getImage, name="getStdInform"),
-    path('getColumnComment', BDPA020.getColumnComment, name="getColumnComment")
+    path('getColumnComment', BDPA020.getColumnComment, name="getColumnComment"),
+    path('getMongoQuery', BDPA020.getMongoQuery, name="getColumnComment"),
 ]

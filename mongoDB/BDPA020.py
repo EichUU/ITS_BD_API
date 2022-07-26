@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 import sys
 import time
 import urllib
@@ -21,16 +22,6 @@ mongo_host = "192.168.0.59"
 mongo_port = 27017
 
 client = MongoClient(mongo_host, int(mongo_port))
-
-def tenSecond():
-    for i in range(10):
-        sys.stdout.write('\r{} sec'.format(i + 1))
-        time.sleep(1)
-    print('\nDone!!')
-
-
-def do(a):
-    tenSecond()
 
 def get_datas(_db_name, _collection_name):
     db = client[_db_name]
@@ -116,7 +107,7 @@ def getImage(request):
 
         script_dir = os.path.dirname(__file__)
 
-        xgb_ml = pickle.load(open(script_dir + '\\stdShregPredict', 'rb'))
+        xgb_ml = pickle.load(open(script_dir + '\\stdShregPredictWithCnt', 'rb'))
         explainer = shap.TreeExplainer(xgb_ml)
         shap_values = explainer.shap_values(df)
 
@@ -293,4 +284,60 @@ def getColumnCommentM(col):
     else:
         resp = HttpResponse("저장된 데이터가 존재하지 않습니다.")
         resp.status_code = 404
+        return resp
+
+
+
+def getMongoQuery(request):
+    body_unicode = request.body.decode('utf-8')
+
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        agg = str(body['AGG'])
+
+    else:
+        agg = str(request.GET.get("AGG"))
+
+    db = client['BDAS']
+    col = db['MCBPA010_M']
+
+
+    try:
+        print(agg)
+        res = col.aggregate(json.loads(agg))
+
+        columns = []
+        res = list(res)
+
+        if '_id' in res[0].keys():
+            columns = list(res[0]['_id'].keys())
+
+        columns += list(res[0].keys())
+        columns.remove('_id')
+        print(columns)
+
+        df = pd.DataFrame(columns=columns)
+
+        index = 0
+
+        for i in res:
+            temp = []
+            for j in i:
+                print(j)
+                if j == '_id':
+                    for k in i[j]:
+                        temp.append(i[j][k])
+                else:
+                    temp.append(i[j])
+            df.loc[index] = temp
+            index += 1
+
+        print(1)
+        resp = HttpResponse(df.to_json(orient='records', force_ascii=False))
+        resp.status_code = 200
+        return resp
+
+    except Exception as e:
+        print(e)
+        resp.status_code = 400
         return resp
