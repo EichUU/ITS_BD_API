@@ -5,6 +5,7 @@ from django.conf import settings
 from . import views
 from . import datamds_master as dm
 from . import modmds_master as modmds
+from . import prds
 
 urlpatterns = [
     path('', include('mongoDB.urls')),
@@ -14,6 +15,8 @@ urlpatterns = [
     path('hive_query', dm.hive_query, name='hive_query'),
     path('getColumn', views.get_column, name='get_columns'),
     path('insertTable', views.insertTable, name='insertTable'),
+    path('getPRDTable', prds.selectPRDTable, name='selectPRDTable'),
+    path('insertPRDTable', prds.insertPRDTable, name='insertPRDTable'),
     path('query', dm.select_query, name='select_query'),
     path('mongodb_query', dm.mongodb_query, name='mongodb_query'),
     path('usermds', dm.user_mds, name="user_mds"),

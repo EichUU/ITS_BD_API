@@ -157,6 +157,7 @@ def mongoSelect(request):
     try:
         if query is None or query == '':
             cur = objectIdDecoder(collection.find({}))
+
             #.sort(sort).limit(limit))
         else:
             cur = objectIdDecoder(collection.find(pql.find(query)))

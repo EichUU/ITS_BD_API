@@ -19,7 +19,7 @@ def get_conn(dbtype, dsname, dbuser, dbpwd, dbhost, dbport):
         cur = conn.cursor()
 
     elif dbtype == "oracle":
-        os.chdir(r'C:\mapsco\project\ITS_BD_API\dbcon\instantclient_19_13')
+        os.chdir(r'D:\workspace\ITS_BD_API\dbcon\instantclient_21_6')
         os.putenv('NLS_LANG', 'AMERICAN_AMERICA.UTF8')
 
         db = cx_Oracle.connect(user=dbuser, password=dbpwd, dsn=dbhost)
