@@ -17,6 +17,7 @@ urlpatterns = [
     path('insertTable', views.insertTable, name='insertTable'),
     path('getPRDTable', prds.selectPRDTable, name='selectPRDTable'),
     path('insertPRDTable', prds.insertPRDTable, name='insertPRDTable'),
+    path('getDataCount', prds.dataCount, name='dataCount'),
     path('query', dm.select_query, name='select_query'),
     path('mongodb_query', dm.mongodb_query, name='mongodb_query'),
     path('usermds', dm.user_mds, name="user_mds"),
