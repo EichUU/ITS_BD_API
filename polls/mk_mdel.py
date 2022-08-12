@@ -1,12 +1,9 @@
-from django.test import TestCase
-
-# Create your tests here.
-
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, \
-    ConfusionMatrixDisplay, roc_curve
+import cx_Oracle
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, ConfusionMatrixDisplay, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
 import shap
+from sklearn.metrics import confusion_matrix, plot_confusion_matrix
 
 import optuna
 from optuna import Trial
@@ -23,7 +20,6 @@ import os
 import sys
 import time
 import urllib
-from tqdm import tqdm
 from multiprocessing import Process
 
 import pandas as pd
@@ -42,38 +38,56 @@ mongo_port = 27017
 client = MongoClient(mongo_host, int(mongo_port))
 
 
-def mkMdel():
+def mkMdel(request):
     print("mkMdel 호출")
+    body_unicode = request.body.decode('utf-8')
 
     try:
-        # 모델코드
-        mCd = '000001'
-        # 예측방법
-        mThd = 'BDK001'
-        # 모델이름
-        mName = '000001_BDK002_000001'
-        # 최적화유무
-        mOpt = 'N'
-        # 예측결과물분류
-        mClas = 'BDL001'
-        # DB종류
-        tUser = 'NoSql'
-        # DB종류별 유저
-        tUserDetail = 'BDAS'
-        # 테이블 이름
-        tName = 'MCBPA010_M'
+        if len(body_unicode) != 0:
+            body = json.loads(body_unicode)
+            # 모델코드
+            mCd = body['mCd']
+            # 예측방법
+            mThd = body['mThd']
+            # 모델이름
+            mName = body['mName']
+            # 최적화유무
+            mOpt = body['mOpt']
+            # 예측결과물분류
+            mClas = body['mClas']
+            # DB종류
+            tUser = body['tUser']
+            # DB종류별 유저
+            tUserDetail = ['tUserDetail']
+            # 테이블 이름
+            tName = body['tName']
 
-        resultList = []
+        else:
+            # 모델코드
+            mCd = request.GET.get("mCd")
+            # 예측방법
+            mThd = request.GET.get("mThd")
+            # 모델이름
+            mName = request.GET.get("mName")
+            # 최적화유무
+            mOpt = request.GET.get("mOpt")
+            # 예측결과물분류
+            mClas = request.GET.get("mClas")
+            # DB종류
+            tUser = request.GET.get("tUser")
+            # DB종류별 유저
+            tUserDetail = request.GET.get("tUserDetail")
+            # 테이블 이름
+            tName = request.GET.get("tName")
 
-        print(1)
+            print(1)
         if tUser == 'NoSql':
             db = client[tUserDetail]
             collection = db[tName]
+            # 중복데이터가 많은 관계로 마지막 학기의 마지막 주차만 들고오는 중
+            # 모든 데이터를 넣으면 머신의 속도도 굉장히 느리다.
             res = collection.find({'YY': '2022', 'SHTM': '2', 'WEEK': '1'}, {'_id': 0})
             totalData = pd.DataFrame(list(res))
-
-            print(totalData.columns)
-            print(totalData.head())
 
             print(2)
             # 사용되는 컬럼과 종속변수 컬럼을 들고온다.
@@ -90,77 +104,93 @@ def mkMdel():
             # 독립변수 컬럼
             useDf = pd.DataFrame(resultUse)
             useList = list(useDf.iloc[:, 0])
-            print(useList)
 
             resultTarget = cur.execute(targetCol)
             # 종속변수 컬럼
             targetDf = pd.DataFrame(resultTarget)
-            targetList = list(targetDf.iloc[0])
-            print(targetList)
+            targetList = list(targetDf.iloc[:, 0])
+
+            cur.close()
 
             totalData['SHREG_GB'] = ((totalData['SHREG_GB'] != "B30005") | (totalData['RESN'] == "B19005") | (
                     totalData['RESN'] == "B19006") | (
                                              totalData['RESN2'] == "B23006")).apply(lambda x: '1' if x is True else "0")
 
             print(5)
-            print(totalData['SHREG_GB'])
 
+            # 인코딩 작업
+            # 정수가 아닌 오브젝트일 때, 카테고리로 지정하며 코드를 부여하고 있다
             for i in totalData.columns:
                 if totalData[i].dtypes == "object":
                     totalData[i] = totalData[i].astype('category').cat.codes
 
-            # encodingData = pd.get_dummies(totalData)
             x_data = totalData[useList]
             y_data = totalData[targetList]
-            # x_data = pd.get_dummies(X_data)
-            # y_data = pd.get_dummies(Y_data)
 
             print(6)
             print(x_data)
             print(y_data)
 
+            resultList = []
+
             if mThd == "BDK001":
                 if mOpt == 'Y':
-                    resultList = mkOptXgb(x_data, y_data)
+                    resultList = mkOptXgb(x_data, y_data, mName)
                 else:
-                    resultList = mkXgboost(x_data, y_data)
+                    resultList = mkXgboost(x_data, y_data, mName)
 
             elif mThd == "BDK002":
                 if mOpt == 'Y':
-                    resultList = mkOptRf(x_data, y_data)
+                    resultList = mkOptRf(x_data, y_data, mName)
                 else:
-                    resultList = mkRandomForest(x_data, y_data)
+                    resultList = mkRandomForest(x_data, y_data, mName)
 
             elif mThd == "BDK003":
                 if mOpt == 'Y':
-                    resultList = mkOptKnn(x_data, y_data)
+                    resultList = mkKnn(x_data, y_data, mName)
                 else:
-                    resultList = mkKnn(x_data, y_data)
+                    resultList = mkOptKnn(x_data, y_data, mName)
 
             elif mThd == "BDK004":
                 if mOpt == 'Y':
-                    resultList = mkOptSvm(x_data, y_data)
+                    resultList = mkSvm(x_data, y_data, mName)
                 else:
-                    resultList = mkSvm(x_data, y_data)
+                    resultList = mkOptSvm(x_data, y_data, mName)
+
+            dbuser = "BDAS"
+            dbpwd = "BDAS12#$"
+            dbhost = "mapsco.kr:1531/XE"
+
+            prdConn = cx_Oracle.connect(user=dbuser, password=dbpwd, dsn=dbhost)
+            cur = prdConn.cursor()
+
+            updateSql = """UPDATE TPBPA060_M SET
+                               PRD_MDEL_STATE   = '1'
+                             , PRD_ACC          = '""" + str(resultList['acc']) + """'
+                             , PRD_PRE          = '""" + str(resultList['pre']) + """'
+                             , PRD_REC          = '""" + str(resultList['rec']) + """'
+                             , PRD_F1           = '""" + str(resultList['f1']) + """'
+                             , PRD_RSLT_SHAP    = '""" + str(resultList['shap']) + """'
+                             , PRD_RSLT_MATRIX  = '""" + str(resultList['mat']) + """'
+                             , PRD_RSLT_ROC     = '""" + str(resultList['roc']) + """'
+                            WHERE PRD_MDEL_NM = '""" + mName + """'"""
+            cur.execute(updateSql)
+            prdConn.commit()
 
         # 다른 DB를 사용하게 되면 추가할 것
         elif tUser == 'etc':
-            return ""
-
-        print(str(resultList['acc']))
-        print(str(resultList['pre']))
-        print(str(resultList['rec']))
-        print(str(resultList['f1']))
-        print(str(resultList['shap']))
-        print(str(resultList['mat']))
-        print(str(resultList['roc']))
+            resp = HttpResponse(status=400)
+            return resp
 
     except Exception as e:
         print(e)
-        return ""
+        resp = HttpResponse(status=400)
+        return resp
+
+    return HttpResponse(status=200)
 
 
-def mkXgboost(xData, yData):
+def mkXgboost(xData, yData, mName):
     x_train, x_test, y_train, y_test = train_test_split(xData, yData, test_size=0.3, random_state=77)
     x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=77)
 
@@ -192,30 +222,29 @@ def mkXgboost(xData, yData):
     # SHAP value 그래프
     explainer = shap.Explainer(model)
     shap_value = explainer(x_tr)
-    shap.plots.beeswarm(shap_value)
-
-    # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
+    # shap.plots.beeswarm(shap_value, show=False)
+    shap.summary_plot(shap_value, x_tr, show=False)
     # 저장할 위치
     # 바탕화면/plot/cm
     home_path = os.path.expanduser('~')
-    window_path = os.path.join(home_path, 'Desktop/plot/cm/')
-    fname = '01_test_01'
+    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/shap/')
+    shapFName = mName + '_shap.png'
     if not os.path.isdir(window_path):
         os.makedirs(window_path)
-    plt.savefig(window_path + fname + ".png")
+    plt.savefig(window_path + shapFName)
     plt.close()
+
+    # confusion matrix 그래프
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': shapFName, 'mat': cmFName, 'roc': rocFName}
 
 
-def mkRandomForest(xData, yData):
+def mkRandomForest(xData, yData, mName):
     x_train, x_test, y_train, y_test = train_test_split(xData, yData, test_size=0.3, random_state=77)
 
     model = RandomForestClassifier(
@@ -248,19 +277,16 @@ def mkRandomForest(xData, yData):
     # )
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
 
 
-def mkKnn(xData, yData):
+def mkKnn(xData, yData, mName):
     x_train, x_test, y_train, y_test = train_test_split(xData, yData, test_size=0.3, random_state=77)
 
     model = KNeighborsClassifier(
@@ -289,19 +315,16 @@ def mkKnn(xData, yData):
     # )
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
 
 
-def mkSvm(xData, yData):
+def mkSvm(xData, yData, mName):
     x_train, x_test, y_train, y_test = train_test_split(xData, yData, test_size=0.3, random_state=77)
 
     model = SVC(
@@ -331,20 +354,17 @@ def mkSvm(xData, yData):
     # )
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
 
 
 
-def mkOptXgb(xData, yData):
+def mkOptXgb(xData, yData, mName):
     study = optuna.create_study(direction='maximize', sampler=TPESampler())
     study.optimize(lambda trial: xgbOpt(trial, xData, yData), n_trials=3)
 
@@ -378,21 +398,32 @@ def mkOptXgb(xData, yData):
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
     # SHAP value 그래프
+    # explainer = shap.Explainer(model)
+    # shap_value = explainer(x_tr)
+    # shap.plots.beeswarm(shap_value)
+    # SHAP value 그래프
     explainer = shap.Explainer(model)
     shap_value = explainer(x_tr)
-    shap.plots.beeswarm(shap_value)
+    # shap.plots.beeswarm(shap_value, show=False)
+    shap.summary_plot(shap_value, x_tr, show=False)
+    # 저장할 위치
+    # 바탕화면/plot/cm
+    home_path = os.path.expanduser('~')
+    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/shap/')
+    shapFName = mName + '_shap.png'
+    if not os.path.isdir(window_path):
+        os.makedirs(window_path)
+    plt.savefig(window_path + shapFName)
+    plt.close()
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': shapFName, 'mat': cmFName, 'roc': rocFName}
 
 
 def xgbOpt(trial: Trial, xData, yData):
@@ -425,7 +456,7 @@ def xgbOpt(trial: Trial, xData, yData):
     return f1
 
 
-def mkOptRf(xData, yData):
+def mkOptRf(xData, yData, mName):
     study = optuna.create_study(direction='maximize', sampler=TPESampler())
     study.optimize(lambda trial: rfOpt(trial, xData, yData), n_trials=3)
 
@@ -461,16 +492,13 @@ def mkOptRf(xData, yData):
     # )
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
 
 
 def rfOpt(trial: Trial, xData, yData):
@@ -498,7 +526,7 @@ def rfOpt(trial: Trial, xData, yData):
     return f1
 
 
-def mkOptKnn(xData, yData):
+def mkOptKnn(xData, yData, mName):
     study = optuna.create_study(direction='maximize', sampler=TPESampler())
     study.optimize(lambda trial: knnOpt(trial, xData, yData), n_trials=3)
 
@@ -530,16 +558,13 @@ def mkOptKnn(xData, yData):
     # )
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
 
 
 def knnOpt(trial: Trial, xData, yData):
@@ -562,7 +587,7 @@ def knnOpt(trial: Trial, xData, yData):
     return f1
 
 
-def mkOptSvm(xData, yData):
+def mkOptSvm(xData, yData, mName):
     study = optuna.create_study(direction='maximize', sampler=TPESampler())
     study.optimize(lambda trial: svmOpt(trial, xData, yData), n_trials=3)
 
@@ -595,16 +620,13 @@ def mkOptSvm(xData, yData):
     # )
 
     # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
-    plt.show()
+    cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
     fper, tper, thresholds = roc_curve(y_test, prds)
-    plot_roc_curve(fper, tper, 0.0)
+    rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
-    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
+    return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
 
 
 def svmOpt(trial: Trial, xData, yData):
@@ -631,14 +653,37 @@ def svmOpt(trial: Trial, xData, yData):
 
 
 # ROC((Receiver Operating Characteristic) curve 그리는 함수
-def plot_roc_curve(fper, tper, title):
+def plot_roc_curve(fper, tper, title, mName):
     plt.plot(fper, tper, color='red', label='ROC')
     plt.plot([0, 1], [0, 1], color='green', linestyle='--')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic Curve(XGBoost :' + str(title) + ')')
+    plt.title('Receiver Operating Characteristic Curve('+ str(title) + ')')
     plt.legend()
-    plt.show()
+    # 저장할 위치
+    # 바탕화면/plot/cm
+    home_path = os.path.expanduser('~')
+    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/roc/')
+    rocFName = mName + '_roc.png'
+    if not os.path.isdir(window_path):
+        os.makedirs(window_path)
+    plt.savefig(window_path + rocFName)
+    plt.close()
+    return rocFName
 
 
-mkMdel()
+def mkConfusion(y_test, prds, model, mName):
+    # confusion matrix 그래프
+    cm = confusion_matrix(y_test, prds, labels=model.classes_)
+    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
+    plot.plot()
+    # 저장할 위치
+    # 바탕화면/plot/cm
+    home_path = os.path.expanduser('~')
+    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/cm/')
+    cmFName = mName + '_cm.png'
+    if not os.path.isdir(window_path):
+        os.makedirs(window_path)
+    plt.savefig(window_path + cmFName)
+    plt.close()
+    return cmFName

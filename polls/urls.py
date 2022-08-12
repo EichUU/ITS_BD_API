@@ -5,7 +5,7 @@ from django.conf import settings
 from . import views
 from . import datamds_master as dm
 from . import modmds_master as modmds
-from . import prds
+from . import prds, mk_mdel
 
 urlpatterns = [
     path('', include('mongoDB.urls')),
@@ -18,6 +18,7 @@ urlpatterns = [
     path('getPRDTable', prds.selectPRDTable, name='selectPRDTable'),
     path('insertPRDTable', prds.insertPRDTable, name='insertPRDTable'),
     path('getDataCount', prds.dataCount, name='dataCount'),
+    path('mkMdel', mk_mdel.mkMdel, name='make_model'),
     path('query', dm.select_query, name='select_query'),
     path('mongodb_query', dm.mongodb_query, name='mongodb_query'),
     path('usermds', dm.user_mds, name="user_mds"),
