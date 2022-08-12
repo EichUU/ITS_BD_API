@@ -1,4 +1,5 @@
 # This is a sample Python script.
+import os
 from io import StringIO
 import cx_Oracle
 # from gevent.pywsgi import WSGIServer
@@ -80,7 +81,11 @@ mongo_port = 27017
 
 # expire_time = 2 : 2분 주기로 connection check(ping)
 
-connection_tibero = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+# connection_tibero = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+# connection_oracle = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
+
+os.chdir(r'D:\PROJECT\13.TCLOUD\pyProject\instantclient_21_6')
+os.putenv('NLS_LANG', 'AMERICAN_AMERICA.UTF8')
 # cx_Oracle.connect("BDAS", "!#GONGT*", "192.168.102.70:1521/SMISBK?expire_time=2")
 
 # connection_hive = hive.Connection(host="192.168.0.193", port=10000, auth="NOSASL", database="default")
@@ -536,8 +541,8 @@ def select_query(request):
         # connection = pool.acquire()
         # gongt_connection = cx_Oracle.connect("GONGT", "!#GONGT*", "192.168.102.70:1521/SMISBK?expire_time=2")
 
-        global connection_tibero
-        global connection_hive
+        # global connection_tibero
+        global connection_oracle
         start = time.time()
         query = ""
         name = ""
@@ -589,13 +594,19 @@ def select_query(request):
             if t_user == "UPMS":
                 # connection = cx_Oracle.connect("HAKSA", "!#HAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
                 print("*********1")
-                query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_tibero, parse_dates=['Date'], chunksize=10000)])
+                # query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_tibero, parse_dates=['Date'], chunksize=10000)])
                 print(query_result)
                 # query_result = pd.read_sql_query(query, connection)
                 # connection.close()
             elif t_user == "BIG_DATA":
                 # query_result = pd.read_sql_query(query, connection_hive)
-                query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_hive, parse_dates=['Date'], chunksize=10000)])
+                # query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_hive, parse_dates=['Date'], chunksize=10000)])
+                print(t_user)
+            elif t_user == "BDAS":
+                # query_result = pd.read_sql_query(query, connection_hive)
+                connection_oracle = cx_Oracle.connect("BDAS", "BDAS12#$", "mapsco.kr:1531/XE")
+                query_result = pd.concat([chunk for chunk in pd.read_sql_query(query, connection_oracle, parse_dates=['Date'], chunksize=10000)])
+                print(query_result)
             # elif t_user == "GHAKSA":
             #     # ghaksa_connection = cx_Oracle.connect("GHAKSA", "!#GHAKSA*", "192.168.102.70:1521/SMISBK?expire_time=2")
             #     # query_result = pd.read_sql_query(query, ghaksa_connection)
