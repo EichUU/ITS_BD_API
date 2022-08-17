@@ -18,7 +18,7 @@ from pymongo import MongoClient
 
 from dbcon.connDB import get_conn
 
-mongo_host = "192.168.0.59"
+mongo_host = "192.168.0.11"
 mongo_port = 27017
 
 client = MongoClient(mongo_host, int(mongo_port))
@@ -56,7 +56,9 @@ def getStdInform(request):
         res = collection.find({"STD_NO":stdNo}, {"_id":False, "SHAP_VALUE":False})
         # print("got md", 'BDAS', list(res))
 
+
         stdDf = pd.DataFrame(list(res))
+        stdDf['PRD'] = stdDf['PRD'].astype('float').round(4)
 
         # print(stdDf[(stdDf['YY'] + stdDf['SHTM'] >= frYy + frShtm & stdDf['YY'] + stdDf['SHTM'] <= toYy + toShtm)])
 
@@ -99,11 +101,20 @@ def getImage(request):
 
         df = pd.DataFrame(list(res))
 
+        collection = db['MCBPA010_M']
+        res = collection.find({"STD_NO": stdNo, "YY": yy, "SHTM": shtm, "WEEK": week}, {"_id":False, "STD_NO":False, "YY":False, "SHTM":False, "WEEK":False})
+
+        df_temp = pd.DataFrame(list(res))
+
+
         for i in df.columns:
             try:
                 df[i] = df[i].astype(float)
             except Exception as e:
                 print(e)
+
+        for i in df.columns:
+            print(df[i])
 
         script_dir = os.path.dirname(__file__)
 
@@ -111,16 +122,27 @@ def getImage(request):
         explainer = shap.TreeExplainer(xgb_ml)
         shap_values = explainer.shap_values(df)
 
-        print(df)
 
         plt.rcParams["font.family"] = 'MaruBuri'
         shap.initjs()
+
+
+        # 카테고리 code를 사용자가 보기 쉽도록 변경한다.(추후 변경 필요)
+        df['학적변동 카테고리'] = df_temp['A4']
+        df['지원구분'] = df_temp['SUPP_NM']
+        df['학과'] = df_temp['MJ_NM']
+        df['학부'] = df_temp['SUST_NM']
+
+
         # dependence_plot
         # 총 13개 특성의 Shapley value를 절댓값 변환 후 각 특성마다 더함 -> np.argsort()는 작은 순서대로 정렬, 큰 순서대로 정렬하려면
         # 앞에 마이너스(-) 기호를 붙임
+
         shap.decision_plot(explainer.expected_value, shap_values[0, :], df.iloc[0, :], show=False)
         plt.savefig(script_dir + '\\' + str(stdNo) + '_1.png', bbox_inches='tight')
         plt.clf()
+
+        print(shap_values, df, explainer.expected_value)
 
         shap.force_plot(explainer.expected_value, shap_values[0, :], df.iloc[0, :], matplotlib=True, show=False)
         plt.savefig(script_dir + '\\' + str(stdNo) + '_2.png', bbox_inches='tight')
@@ -313,8 +335,8 @@ def getMongoQuery(request):
             columns = list(res[0]['_id'].keys())
 
         columns += list(res[0].keys())
-        columns.remove('_id')
-        print(columns)
+        if '_id' in columns:
+            columns.remove('_id')
 
         df = pd.DataFrame(columns=columns)
 
@@ -323,7 +345,6 @@ def getMongoQuery(request):
         for i in res:
             temp = []
             for j in i:
-                print(j)
                 if j == '_id':
                     for k in i[j]:
                         temp.append(i[j][k])
@@ -332,7 +353,6 @@ def getMongoQuery(request):
             df.loc[index] = temp
             index += 1
 
-        print(1)
         resp = HttpResponse(df.to_json(orient='records', force_ascii=False))
         resp.status_code = 200
         return resp
@@ -341,3 +361,151 @@ def getMongoQuery(request):
         print(e)
         resp.status_code = 400
         return resp
+
+
+def getMax(request):
+    body_unicode = request.body.decode('utf-8')
+
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        frYY = str(body['FR_YY'])
+        frSHTM = str(body['FR_SHTM'])
+        toYY = str(body['TO_YY'])
+        toSHTM = str(body['TO_SHTM'])
+
+    else:
+        frYY = str(request.GET.get("FR_YY"))
+        frSHTM = str(request.GET.get("FR_SHTM"))
+        toYY = str(request.GET.get("TO_YY"))
+        toSHTM = str(request.GET.get("TO_SHTM"))
+
+    db = client['BDAS']
+    col = db['MCBPA010_M']
+
+    agg = [
+            {
+                '$project': {
+                    'YY': 1,
+                    'SHTM': 1,
+                    'WEEK': 1,
+                    'YYSHTM': {
+                        '$concat': [
+                            '$YY', '$SHTM'
+                        ]
+                    }
+                }
+            }, {
+                '$match': {
+                    'YYSHTM': {
+                        '$gte': str(frYY) + str(frSHTM),
+                        '$lte': str(toYY) + str(toSHTM),
+                    }
+                }
+            }, {
+                '$group': {
+                    '_id': {
+                        'YY': '$YY',
+                        'SHTM': '$SHTM',
+                        'WEEK': '$WEEK'
+                    }
+                }
+            }
+        ]
+
+    res = col.aggregate(agg)
+
+    columns = []
+    res = list(res)
+
+    if '_id' in res[0].keys():
+        columns = list(res[0]['_id'].keys())
+
+    columns += list(res[0].keys())
+    if '_id' in columns:
+        columns.remove('_id')
+
+    df = pd.DataFrame(columns=columns)
+
+    index = 0
+
+    for i in res:
+        temp = []
+        for j in i:
+            if j == '_id':
+                for k in i[j]:
+                    temp.append(i[j][k])
+            else:
+                temp.append(i[j])
+        df.loc[index] = temp
+        index += 1
+
+    df = df.astype(int)
+    df = df.groupby(['YY','SHTM'], sort=False)['WEEK'].max().reset_index()
+    resp = HttpResponse(df.to_json(orient='records', force_ascii=False))
+    resp.status_code = 200
+    return resp
+
+
+
+def getStdPrd(request):
+    body_unicode = request.body.decode('utf-8')
+
+    if len(body_unicode) != 0:
+        body = json.loads(body_unicode)
+        stdNo = str(body['STD_NO'])
+
+    else:
+        stdNo = str(request.GET.get("STD_NO"))
+
+    agg =[
+            {
+                '$project': {
+                    'YY': 1,
+                    'SHTM': 1,
+                    'WEEK': 1,
+                    'STD_NO': 1,
+                    'PRD': 1,
+                    '_id': {
+                        'YY': {
+                            '$toInt': '$YY'
+                        },
+                        'SHTM': {
+                            '$toInt': '$SHTM'
+                        },
+                        'WEEK': {
+                            '$toInt': '$WEEK'
+                        }
+                    }
+                }
+            }, {
+                '$match': {
+                    'STD_NO': stdNo
+                }
+            }, {
+                '$sort': {
+                    '_id': -1
+                }
+            }, {
+                '$limit': 1
+            }, {
+                '$project': {
+                    'PRD': {
+                        '$multiply': [
+                            {
+                                '$toDouble': '$PRD'
+                            }, 100
+                        ]
+                    },
+                    '_id': 0
+                }
+            }
+        ]
+
+    db = client['BDAS']
+    col = db['MCBPA010_M']
+    res = col.aggregate(agg)
+    res = list(res)
+
+    resp = HttpResponse(str(res[0]))
+    resp.status_code = 200
+    return resp

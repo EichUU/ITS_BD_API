@@ -84,8 +84,8 @@ mongo_port = 27017
 # connection_tibero = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
 # connection_oracle = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
 
-os.chdir(r'D:\PROJECT\13.TCLOUD\pyProject\instantclient_21_6')
-os.putenv('NLS_LANG', 'AMERICAN_AMERICA.UTF8')
+# os.chdir(r'D:\PROJECT\13.TCLOUD\pyProject\instantclient_21_6')
+# os.putenv('NLS_LANG', 'AMERICAN_AMERICA.UTF8')
 # cx_Oracle.connect("BDAS", "!#GONGT*", "192.168.102.70:1521/SMISBK?expire_time=2")
 
 # connection_hive = hive.Connection(host="192.168.0.193", port=10000, auth="NOSASL", database="default")

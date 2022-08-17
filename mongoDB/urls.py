@@ -13,4 +13,6 @@ urlpatterns = [
     path('getStdGraph', BDPA020.getImage, name="getStdInform"),
     path('getColumnComment', BDPA020.getColumnComment, name="getColumnComment"),
     path('getMongoQuery', BDPA020.getMongoQuery, name="getColumnComment"),
+    path('getMax', BDPA020.getMax, name="getMaxYYSHTMWEEK"),
+    path('getStdPrd', BDPA020.getStdPrd, name="getStdPrd"),
 ]

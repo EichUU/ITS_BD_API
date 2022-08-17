@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import cx_Oracle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, ConfusionMatrixDisplay, roc_curve
 from sklearn.model_selection import train_test_split
@@ -36,7 +38,6 @@ mongo_host = "192.168.0.59"
 mongo_port = 27017
 
 client = MongoClient(mongo_host, int(mongo_port))
-
 
 def mkMdel(request):
     print("mkMdel 호출")
@@ -86,7 +87,7 @@ def mkMdel(request):
             collection = db[tName]
             # 중복데이터가 많은 관계로 마지막 학기의 마지막 주차만 들고오는 중
             # 모든 데이터를 넣으면 머신의 속도도 굉장히 느리다.
-            res = collection.find({'YY': '2022', 'SHTM': '2', 'WEEK': '1'}, {'_id': 0})
+            res = collection.find({'YY': '2022', 'SHTM': '1', 'WEEK': '16'}, {'_id': 0})
             totalData = pd.DataFrame(list(res))
 
             print(2)
@@ -226,8 +227,11 @@ def mkXgboost(xData, yData, mName):
     shap.summary_plot(shap_value, x_tr, show=False)
     # 저장할 위치
     # 바탕화면/plot/cm
-    home_path = os.path.expanduser('~')
-    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/shap/')
+    # home_path = os.path.expanduser('~')
+
+    script_dir = str(Path(os.path.dirname(__file__)).parent)
+    window_path = os.path.join(script_dir, 'data/img/shap/')
+
     shapFName = mName + '_shap.png'
     if not os.path.isdir(window_path):
         os.makedirs(window_path)
@@ -408,8 +412,11 @@ def mkOptXgb(xData, yData, mName):
     shap.summary_plot(shap_value, x_tr, show=False)
     # 저장할 위치
     # 바탕화면/plot/cm
-    home_path = os.path.expanduser('~')
-    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/shap/')
+
+    script_dir = str(Path(os.path.dirname(__file__)).parent)
+    window_path = os.path.join(script_dir, 'data/img/shap/')
+
+    # window_path = '/img/shap/'
     shapFName = mName + '_shap.png'
     if not os.path.isdir(window_path):
         os.makedirs(window_path)
@@ -662,12 +669,19 @@ def plot_roc_curve(fper, tper, title, mName):
     plt.legend()
     # 저장할 위치
     # 바탕화면/plot/cm
-    home_path = os.path.expanduser('~')
-    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/roc/')
+
+    script_dir = str(Path(os.path.dirname(__file__)).parent)
+    window_path = os.path.join(script_dir, 'data/img/roc/')
+
     rocFName = mName + '_roc.png'
+
     if not os.path.isdir(window_path):
         os.makedirs(window_path)
+
     plt.savefig(window_path + rocFName)
+
+
+
     plt.close()
     return rocFName
 
@@ -679,11 +693,18 @@ def mkConfusion(y_test, prds, model, mName):
     plot.plot()
     # 저장할 위치
     # 바탕화면/plot/cm
-    home_path = os.path.expanduser('~')
-    window_path = os.path.join(home_path, 'D:/ITS_UAPP/img/cm/')
+
+    script_dir = str(Path(os.path.dirname(__file__)).parent)
+    window_path = os.path.join(script_dir, 'data/img/cm/')
+
+    # window_path = '/img/cm/'
     cmFName = mName + '_cm.png'
+
+    print(window_path + cmFName)
+
     if not os.path.isdir(window_path):
         os.makedirs(window_path)
+
     plt.savefig(window_path + cmFName)
     plt.close()
     return cmFName
