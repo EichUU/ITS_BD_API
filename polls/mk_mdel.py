@@ -39,6 +39,7 @@ mongo_port = 27017
 
 client = MongoClient(mongo_host, int(mongo_port))
 
+
 def mkMdel(request):
     print("mkMdel 호출")
     body_unicode = request.body.decode('utf-8')
@@ -213,7 +214,11 @@ def mkXgboost(xData, yData, mName):
               verbose=True
               )
 
+    saveMdel(model, mName)
+
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
@@ -242,7 +247,7 @@ def mkXgboost(xData, yData, mName):
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': shapFName, 'mat': cmFName, 'roc': rocFName}
@@ -262,29 +267,22 @@ def mkRandomForest(xData, yData, mName):
     )
 
     model.fit(x_train, y_train)
+    saveMdel(model, mName)
 
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
     rec = round(recall_score(y_test, prds) * 100, 3)
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
-    # SHAP value 그래프
-    # explainer = shap.TreeExplainer(model)
-    # shap_value = explainer.shap_values(x_train)
-    # shap_obj = explainer(x_train)
-    # shap.summary_plot(
-    #     shap_values=shap_value,
-    #     features=x_train,
-    #     plot_size=(6, 6)
-    # )
-
     # confusion matrix 그래프
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
@@ -300,29 +298,22 @@ def mkKnn(xData, yData, mName):
     )
 
     model.fit(x_train, y_train)
+    saveMdel(model, mName)
 
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
     rec = round(recall_score(y_test, prds) * 100, 3)
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
-    # SHAP value 그래프
-    # explainer = shap.TreeExplainer(model)
-    # shap_value = explainer.shap_values(x_train)
-    # shap_obj = explainer(x_train)
-    # shap.summary_plot(
-    #     shap_values=shap_value,
-    #     features=x_train,
-    #     plot_size=(6, 6)
-    # )
-
     # confusion matrix 그래프
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
@@ -339,33 +330,25 @@ def mkSvm(xData, yData, mName):
     )
 
     model.fit(x_train, y_train)
+    saveMdel(model, mName)
 
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
     rec = round(recall_score(y_test, prds) * 100, 3)
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
-    # SHAP value 그래프
-    # explainer = shap.TreeExplainer(model)
-    # shap_value = explainer.shap_values(x_train)
-    # shap_obj = explainer(x_train)
-    # shap.summary_plot(
-    #     shap_values=shap_value,
-    #     features=x_train,
-    #     plot_size=(6, 6)
-    # )
-
     # confusion matrix 그래프
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
-
 
 
 def mkOptXgb(xData, yData, mName):
@@ -394,7 +377,11 @@ def mkOptXgb(xData, yData, mName):
         verbose=True
     )
 
+    saveMdel(model, mName)
+
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
@@ -427,7 +414,7 @@ def mkOptXgb(xData, yData, mName):
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': shapFName, 'mat': cmFName, 'roc': rocFName}
@@ -480,29 +467,22 @@ def mkOptRf(xData, yData, mName):
     )
 
     model.fit(x_train, y_train)
+    saveMdel(model, mName)
 
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
     rec = round(recall_score(y_test, prds) * 100, 3)
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
-    # SHAP value 그래프
-    # explainer = shap.TreeExplainer(model)
-    # shap_value = explainer.shap_values(x_train)
-    # shap_obj = explainer(x_train)
-    # shap.summary_plot(
-    #     shap_values=shap_value,
-    #     features=x_train,
-    #     plot_size=(6, 6)
-    # )
-
     # confusion matrix 그래프
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
@@ -546,29 +526,22 @@ def mkOptKnn(xData, yData, mName):
     )
 
     model.fit(x_train, y_train)
+    saveMdel(model, mName)
 
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
     rec = round(recall_score(y_test, prds) * 100, 3)
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
-    # SHAP value 그래프
-    # explainer = shap.TreeExplainer(model)
-    # shap_value = explainer.shap_values(x_train)
-    # shap_obj = explainer(x_train)
-    # shap.summary_plot(
-    #     shap_values=shap_value,
-    #     features=x_train,
-    #     plot_size=(6, 6)
-    # )
-
     # confusion matrix 그래프
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
@@ -609,28 +582,22 @@ def mkOptSvm(xData, yData, mName):
 
     model.fit(x_train, y_train)
 
+    saveMdel(model, mName)
+
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
     rec = round(recall_score(y_test, prds) * 100, 3)
     f1 = round(f1_score(y_test, prds) * 100, 3)
 
-    # SHAP value 그래프
-    # explainer = shap.TreeExplainer(model)
-    # shap_value = explainer.shap_values(x_train)
-    # shap_obj = explainer(x_train)
-    # shap.summary_plot(
-    #     shap_values=shap_value,
-    #     features=x_train,
-    #     plot_size=(6, 6)
-    # )
-
     # confusion matrix 그래프
     cmFName = mkConfusion(y_test, prds, model, mName)
 
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     rocFName = plot_roc_curve(fper, tper, 0.0, mName)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': cmFName, 'roc': rocFName}
@@ -665,7 +632,7 @@ def plot_roc_curve(fper, tper, title, mName):
     plt.plot([0, 1], [0, 1], color='green', linestyle='--')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic Curve('+ str(title) + ')')
+    plt.title('Receiver Operating Characteristic Curve(' + str(title) + ')')
     plt.legend()
     # 저장할 위치
     # 바탕화면/plot/cm
@@ -680,12 +647,11 @@ def plot_roc_curve(fper, tper, title, mName):
 
     plt.savefig(window_path + rocFName)
 
-
-
     plt.close()
     return rocFName
 
 
+# Confusion matrix를 그려주는 함수
 def mkConfusion(y_test, prds, model, mName):
     # confusion matrix 그래프
     cm = confusion_matrix(y_test, prds, labels=model.classes_)
@@ -708,3 +674,16 @@ def mkConfusion(y_test, prds, model, mName):
     plt.savefig(window_path + cmFName)
     plt.close()
     return cmFName
+
+
+# 모델을 저장해주는 함수
+def saveMdel(model, mName):
+    script_dir = str(Path(os.path.dirname(__file__)).parent)
+    window_path = os.path.join(script_dir, 'data/mdel/')
+
+    if not os.path.isdir(window_path):
+        os.makedirs(window_path)
+
+    with open(window_path + mName + '.pickle', 'wb') as fw:
+        pickle.dump(model, fw)
+        
