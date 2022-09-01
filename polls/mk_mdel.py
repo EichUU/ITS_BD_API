@@ -41,12 +41,16 @@ client = MongoClient(mongo_host, int(mongo_port))
 
 
 def mkMdel(request):
-    print("mkMdel 호출")
+
     body_unicode = request.body.decode('utf-8')
 
     try:
         if len(body_unicode) != 0:
             body = json.loads(body_unicode)
+            # 모델코드
+            xData = body['xData']
+            # 모델코드
+            yData = body['yData']
             # 모델코드
             mCd = body['mCd']
             # 예측방법
@@ -65,6 +69,10 @@ def mkMdel(request):
             tName = body['tName']
 
         else:
+            # 독립변수
+            xData = request.GET.get("xData")
+            # 종속변수
+            yData = request.GET.get("yData")
             # 모델코드
             mCd = request.GET.get("mCd")
             # 예측방법
@@ -82,8 +90,8 @@ def mkMdel(request):
             # 테이블 이름
             tName = request.GET.get("tName")
 
-            print(1)
         if tUser == 'NoSql':
+            print(xData, yData, mCd, mThd, mName, mOpt, mClas, tUser, tUserDetail, tName)
             db = client[tUserDetail]
             collection = db[tName]
             # 중복데이터가 많은 관계로 마지막 학기의 마지막 주차만 들고오는 중
@@ -91,34 +99,17 @@ def mkMdel(request):
             res = collection.find({'YY': '2022', 'SHTM': '1', 'WEEK': '16'}, {'_id': 0})
             totalData = pd.DataFrame(list(res))
 
-            print(2)
             # 사용되는 컬럼과 종속변수 컬럼을 들고온다.
-            userCol = "SELECT PRD_COLUMN_NM FROM TPBPA030_D WHERE PRD_MDEL_CD = '" + mCd + "' AND PRD_MTHD ='" + mThd + "' AND USE_YN = 'Y' AND PRD_COLUMN_TARGET = 'N'"
+            useList = str(xData).split(';')
+            targetList = yData
 
-            targetCol = "SELECT PRD_COLUMN_NM FROM TPBPA030_D WHERE PRD_MDEL_CD = '" + mCd + "' AND PRD_MTHD ='" + mThd + "' AND PRD_COLUMN_TARGET = 'Y'"
-
-            print(3)
-            cur = get_conn("oracle", "XE", "BDAS", "BDAS12#$", "mapsco.kr:1531/XE", "")
-
-            print(4)
-
-            resultUse = cur.execute(userCol)
-            # 독립변수 컬럼
-            useDf = pd.DataFrame(resultUse)
-            useList = list(useDf.iloc[:, 0])
-
-            resultTarget = cur.execute(targetCol)
-            # 종속변수 컬럼
-            targetDf = pd.DataFrame(resultTarget)
-            targetList = list(targetDf.iloc[:, 0])
-
-            cur.close()
+            print(useList)
+            print(targetList)
 
             totalData['SHREG_GB'] = ((totalData['SHREG_GB'] != "B30005") | (totalData['RESN'] == "B19005") | (
-                    totalData['RESN'] == "B19006") | (
-                                             totalData['RESN2'] == "B23006")).apply(lambda x: '1' if x is True else "0")
+                    totalData['RESN'] == "B19006")).apply(lambda x: '1' if x is True else "0")
 
-            print(5)
+            # | (totalData['RESN2'] == "B23006")
 
             # 인코딩 작업
             # 정수가 아닌 오브젝트일 때, 카테고리로 지정하며 코드를 부여하고 있다
@@ -128,10 +119,6 @@ def mkMdel(request):
 
             x_data = totalData[useList]
             y_data = totalData[targetList]
-
-            print(6)
-            print(x_data)
-            print(y_data)
 
             resultList = []
 
@@ -185,6 +172,7 @@ def mkMdel(request):
             return resp
 
     except Exception as e:
+        print("에러발생")
         print(e)
         resp = HttpResponse(status=400)
         return resp
@@ -665,8 +653,6 @@ def mkConfusion(y_test, prds, model, mName):
 
     # window_path = '/img/cm/'
     cmFName = mName + '_cm.png'
-
-    print(window_path + cmFName)
 
     if not os.path.isdir(window_path):
         os.makedirs(window_path)

@@ -96,11 +96,9 @@ def selectPRDTable(request):
 
 
 def insertPRDTable(request):
-    print("insertPRDTable 호출")
 
     try:
         body_unicode = request.body.decode('utf-8')
-        print(1)
 
         if len(body_unicode) != 0:
             body = json.loads(body_unicode)
@@ -110,7 +108,6 @@ def insertPRDTable(request):
             tUserDetail = ['tUserDetail']
             # 테이블 이름
             tName = body['tName']
-            print(2)
 
         else:
             # DB종류
@@ -119,7 +116,6 @@ def insertPRDTable(request):
             tUserDetail = request.GET.get("tUserDetail")
             # 테이블 이름
             tName = request.GET.get("tName")
-            print(3)
 
         if tUser == 'NoSql':
             db = client[tUserDetail]
@@ -127,7 +123,6 @@ def insertPRDTable(request):
 
             # 모든 행 컬럼이 같을 경우 limit을 사용하여 첫째행만 가져온다.
             res = collection.find({}, {'_id': 0}).limit(1)
-            print(4)
 
             # 가져온 데이터를 데이터프레임 형태로 저장
             dfColumn = pd.DataFrame(list(res))
@@ -145,7 +140,6 @@ def insertPRDTable(request):
 
                 # 마지막 , 제거
                 strColumn = strColumn.rstrip(",")
-                print(5)
 
                 # 나중에 따로 function으로 빼서 사용할 수 있음
                 # 용어사전과 매칭하여 이름과 설명을 들고온다.
@@ -161,7 +155,6 @@ def insertPRDTable(request):
                 # 몽고db에서 불러온 컬럼명을 데이터프레임으로 변경.
                 # 이 때, 오라클 데이터와 조인하기 위해 DICT_COL_NM 으로 만듬
                 dfColumn = pd.DataFrame(arrColumns, columns=["DICT_COL_NM"])
-                print(6)
 
                 # 오라클에서 불러온 데이터가 없을 경우 COMMENT를 컬럼명으로 지정한다.
                 if df.shape[0] == 0:
@@ -170,7 +163,6 @@ def insertPRDTable(request):
                 # 오라클에서 불러온 데이터와 조인
                 else:
                     returnDf = pd.merge(dfColumn, df, on="DICT_COL_NM", how="left")
-                    print(7)
 
                 # 오라클에서 COMMENT가 없을경우 컬럼명으로 변경한다.
                 returnDf["DICT_DETAIL_NM"] = returnDf["DICT_DETAIL_NM"].fillna(returnDf["DICT_COL_NM"])
@@ -235,7 +227,6 @@ def dataCount(request):
             tUserDetail = ['tUserDetail']
             # 테이블 이름
             tName = body['tName']
-            print(2)
 
         else:
             # DB종류
@@ -244,7 +235,6 @@ def dataCount(request):
             tUserDetail = request.GET.get("tUserDetail")
             # 테이블 이름
             tName = request.GET.get("tName")
-            print(3)
 
         if tUser == 'NoSql':
             db = client[tUserDetail]
@@ -253,7 +243,6 @@ def dataCount(request):
             # 조회한 데이터 수를 반환한다
             res = {"total_data_count": collection.count()}
             print(res)
-            print(4)
             resp = HttpResponse(json.dumps(res))
             resp.status_code = 200
             return resp

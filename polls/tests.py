@@ -2,11 +2,14 @@ from django.test import TestCase
 
 # Create your tests here.
 
+from pathlib import Path
+
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, \
     ConfusionMatrixDisplay, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
 import shap
+import pickle
 
 import optuna
 from optuna import Trial
@@ -35,6 +38,7 @@ from django.http import HttpResponse
 from pymongo import MongoClient
 
 from dbcon.connDB import get_conn
+from polls.mk_mdel import mkConfusion
 
 mongo_host = "192.168.0.59"
 mongo_port = 27017
@@ -51,7 +55,7 @@ def mkMdel():
         # 예측방법
         mThd = 'BDK001'
         # 모델이름
-        mName = '000001_BDK002_000001'
+        mName = '000001_BDK001_000001'
         # 최적화유무
         mOpt = 'N'
         # 예측결과물분류
@@ -123,7 +127,7 @@ def mkMdel():
                 if mOpt == 'Y':
                     resultList = mkOptXgb(x_data, y_data)
                 else:
-                    resultList = mkXgboost(x_data, y_data)
+                    resultList = mkXgboost(x_data, y_data, mName)
 
             elif mThd == "BDK002":
                 if mOpt == 'Y':
@@ -160,7 +164,7 @@ def mkMdel():
         return ""
 
 
-def mkXgboost(xData, yData):
+def mkXgboost(xData, yData, mName):
     x_train, x_test, y_train, y_test = train_test_split(xData, yData, test_size=0.3, random_state=77)
     x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=77)
 
@@ -182,7 +186,11 @@ def mkXgboost(xData, yData):
               verbose=True
               )
 
+    saveMdel(model, mName)
+
     prds = model.predict(x_test)
+    prds_proba = model.predict_proba(x_test)
+    prds_proba_positive = prds_proba[:, 1]
 
     acc = round(accuracy_score(y_test, prds) * 100, 3)
     pre = round(precision_score(y_test, prds) * 100, 3)
@@ -192,12 +200,9 @@ def mkXgboost(xData, yData):
     # SHAP value 그래프
     explainer = shap.Explainer(model)
     shap_value = explainer(x_tr)
-    shap.plots.beeswarm(shap_value)
+    # shap.plots.beeswarm(shap_value)
+    shap.summary_plot(shap_value, x_tr, show=False)
 
-    # confusion matrix 그래프
-    cm = confusion_matrix(y_test, prds, labels=model.classes_)
-    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
-    plot.plot()
     # 저장할 위치
     # 바탕화면/plot/cm
     home_path = os.path.expanduser('~')
@@ -208,8 +213,15 @@ def mkXgboost(xData, yData):
     plt.savefig(window_path + fname + ".png")
     plt.close()
 
+    # confusion matrix 그래프
+    # confusion matrix 그래프
+    cm = confusion_matrix(y_test, prds, labels=model.classes_)
+    plot = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=model.classes_)
+    plot.plot()
+    plt.show()
+
     # ROC((Receiver Operating Characteristic) curve 그래프 그리기
-    fper, tper, thresholds = roc_curve(y_test, prds)
+    fper, tper, thresholds = roc_curve(y_test, prds_proba_positive)
     plot_roc_curve(fper, tper, 0.0)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
@@ -341,7 +353,6 @@ def mkSvm(xData, yData):
     plot_roc_curve(fper, tper, 0.0)
 
     return {'acc': acc, 'pre': pre, 'rec': rec, 'f1': f1, 'shap': 'image', 'mat': 'image', 'roc': 'image'}
-
 
 
 def mkOptXgb(xData, yData):
@@ -639,6 +650,17 @@ def plot_roc_curve(fper, tper, title):
     plt.title('Receiver Operating Characteristic Curve(XGBoost :' + str(title) + ')')
     plt.legend()
     plt.show()
+
+
+def saveMdel(model, mName):
+    script_dir = str(Path(os.path.dirname(__file__)).parent)
+    window_path = os.path.join(script_dir, 'data/mdel/')
+
+    if not os.path.isdir(window_path):
+        os.makedirs(window_path)
+
+    with open(window_path + mName + '.pickle', 'wb') as fw:
+        pickle.dump(model, fw)
 
 
 mkMdel()
